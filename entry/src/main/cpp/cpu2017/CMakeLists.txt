@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.5.0)
 project(speccpu2017)
 
-set(CMAKE_Fortran_COMPILER "D:/llvm-project/build/Release/bin/flang-new.exe")
-enable_language(Fortran)
+#enable_language(Fortran)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 11)
@@ -27,7 +26,7 @@ add_subdirectory(benchspec/CPU/523.xalancbmk_r)
 add_subdirectory(benchspec/CPU/525.x264_r)
 add_subdirectory(benchspec/CPU/531.deepsjeng_r)
 add_subdirectory(benchspec/CPU/541.leela_r)
-add_subdirectory(benchspec/CPU/548.exchange2_r)
+#add_subdirectory(benchspec/CPU/548.exchange2_r)
 add_subdirectory(benchspec/CPU/557.xz_r)
 
 # FP
