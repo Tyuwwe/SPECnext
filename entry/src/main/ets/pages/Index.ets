@@ -164,13 +164,16 @@ struct Index {
       this.globalStatus = newStatus
       switch (newStatus) {
         case Status.Initializing:
-          this.message = "Initializing..."
+          this.message += "\n"
+          this.message += "Initializing..."
           return
         case Status.Error:
-          this.message = "Failed with error: " + errmsg
+          this.message += "\n"
+          this.message += "Failed with error: " + errmsg
           break
         case Status.Completed:
-          this.message = "All tests completed."
+          this.message += "\n"
+          this.message += "All tests completed."
           return
       }
       // if (newStatus == Status.Completed) {
