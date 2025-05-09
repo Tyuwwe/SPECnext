@@ -281,8 +281,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 //                 __wrap = false;
 //             }
                 
-            test_states[test_no].status = status_t::Running;
-            do_log_update(test_no);
+//            test_states[test_no].status = status_t::Running;
+//            do_log_update(test_no);
     
             double time = 0;
             int ret = 0;

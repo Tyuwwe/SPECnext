@@ -36,7 +36,7 @@ async function decompressBundle(bundleRelPath: string) {
 
 async function runTestList(testList: Array<number>, func: object) {
   return new Promise<number>((resolve, reject) => {
-    let ret = testNapi.runTests(testList, 10, func);
+    let ret = testNapi.runTests(testList, 19, func);
     if (ret == 0) resolve(0);
     else reject(ret);
   })
@@ -185,24 +185,30 @@ struct Index {
 
     switch (newStatus) {
       case Status.Initializing:
-        this.message = "Setting up " + this.testList[idx].name + "..."
+        this.message += "\n"
+        this.message += "Setting up " + this.testList[idx].name + "..."
         break
       case Status.Running:
-        this.message = "Running " + this.testList[idx].name + "..."
+        this.message += "\n"
+        this.message += "Running " + this.testList[idx].name + "..."
         break
       case Status.Completed:
-          this.message = this.testList[idx].name + " completed, elapsed " + time.toFixed(2) + "s."
+          this.message += "\n"
+          this.message += this.testList[idx].name + " completed, elapsed " + time.toFixed(2) + "s."
           this.testList[idx].time = time
           this.testList[idx].score = this.testList[idx].reftime / time
         break
       case Status.Error:
-        this.message = this.testList[idx].name + " failed with: " + errmsg
+        this.message += "\n"
+        this.message += this.testList[idx].name + " failed with: " + errmsg
         break
       case Status.Idle:
-        this.message = "Idle"
+        this.message += "\n"
+        this.message += "Idle"
         break
       default:
-        this.message = "Unknown"
+        this.message += "\n"
+        this.message += "Unknown"
         break
     }
     // this.message = "state: " + status + ", " + test.toString() + ", msg: " + message
@@ -251,12 +257,19 @@ struct Index {
           }
         }
         .scrollable(ScrollDirection.Vertical)
-        .height("80%")
+        .height("60%")
 
         Row() {
-          Text(this.message)
+          TextArea({ text: this.message })
+            .width('90%')
+            .height('20%')
+            .padding('1%')
             .fontSize(20)
-            .padding('2%')
+            .margin({ top: 20 })
+
+          // Text(this.message)
+          //   .fontSize(20)
+          //   .padding('2%')
         }
 
         Row() {
