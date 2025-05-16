@@ -181,9 +181,13 @@ struct Index {
     new TestItem('600.perlbench_s', TestType.INTspeed, false, Status.Skipped, 1774,  -1, -1, ""),
     new TestItem('605.mcf_s',       TestType.INTspeed, false, Status.Skipped, 4721,  -1, -1, ""),
     new TestItem('620.omnetpp_s',   TestType.INTspeed, false, Status.Skipped, 1630,  -1, -1, ""),
+    new TestItem('623.xalancbmk_s', TestType.INTspeed, false, Status.Skipped, 1417,  -1, -1, ""),
+    new TestItem('625.x264_s',      TestType.INTspeed, false, Status.Skipped, 1763,  -1, -1, ""),
 
     // FPspeed
-    new TestItem('619.lbm_s', TestType.FPspeed, false, Status.Skipped, 5238,  -1, -1, ""),
+    new TestItem('619.lbm_s',       TestType.FPspeed, false, Status.Skipped, 5238,  -1, -1, ""),
+    new TestItem('638.imagick_s',   TestType.FPspeed, false, Status.Skipped, 14425,  -1, -1, ""),
+    new TestItem('644.nab_s',       TestType.FPspeed, false, Status.Skipped, 17472,  -1, -1, ""),
 
     // Other
     new TestItem('9998.c2clat',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),

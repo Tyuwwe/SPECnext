@@ -89,9 +89,12 @@ std::unordered_map<size_t, std::string> test_names{
     {600, "600.perlbench_s"},
     {605, "605.mcf_s"},
     {620, "620.omnetpp_s"},
-    
+    {623, "623.xalancbmk_s"},
+    {625, "625.x264_s"},
     
     {619, "619.lbm_s"},
+    {638, "638.imagick_s"},
+    {644, "644.nab_s"},
 };
 
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
@@ -143,8 +146,17 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     },
     {605, std::vector<std::vector<const char*>>{{"libmcf_s.so", "inp.in"}}},
     {620, std::vector<std::vector<const char*>>{{"libomnetpp_s.so", "-c", "General", "-r", "0"}}},
+    {623, std::vector<std::vector<const char*>>{{{"libxalancbmk_s.so", "-v", "t5.xml", "xalanc.xsl"}}}},
+    {625, std::vector<std::vector<const char*>>{
+            {"libx264_s.so", "--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.err"},
+            {"libx264_s.so", "--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", "--dumpyuv", "200", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.err"},
+            {"libx264_s.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_0500-1250_x264_s_base.mytest-m64_x264.out", "2>>", "run_0500-1250_x264_s_base.mytest-m64_x264.err"},
+        }
+    },
     
     {619, std::vector<std::vector<const char*>>{{"liblbm_s.so", "2000", "reference.dat", "0", "0", "200_200_260_ldc.of"}}},
+    {638, std::vector<std::vector<const char*>>{{"libimagick_s.so", "-limit", "disk", "0", "refspeed_input.tga", "-resize", "817%", "-rotate", "-2.76", "-shave", "540x375", "-alpha", "remove", "-auto-level", "-contrast-stretch", "1x1%", "-colorspace", "Lab", "-channel", "R", "-equalize", "+channel", "-colorspace", "sRGB", "-define", "histogram:unique-colors=false", "-adaptive-blur", "0x5", "-despeckle", "-auto-gamma", "-adaptive-sharpen", "55", "-enhance", "-brightness-contrast", "10x10", "-resize", "30%", "refspeed_output.tga"}}},
+    {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
     
     {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
     {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
