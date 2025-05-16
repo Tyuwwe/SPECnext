@@ -45,6 +45,7 @@ enum class status_t: int32_t {
     Pending,
     Initializing,
     Running,
+    Message,
     Failed,
     Completed,
     Error,
@@ -84,6 +85,13 @@ std::unordered_map<size_t, std::string> test_names{
     {544, "544.nab_r"},
     {549, "549.fotonik3d_r"},
     {554, "554.roms_r"},
+    
+    {600, "600.perlbench_s"},
+    {605, "605.mcf_s"},
+    {620, "620.omnetpp_s"},
+    
+    
+    {619, "619.lbm_s"},
 };
 
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
@@ -126,6 +134,20 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {538, std::vector<std::vector<const char*>>{{"libimagick_r.so", "-limit", "disk", "0", "refrate_input.tga", "-edge", "41", "-resample", "181%", "-emboss", "31", "-colorspace", "YUV", "-mean-shift", "19x19+15%", "-resize", "30%", "refrate_output.tga"}}},
     {541, std::vector<std::vector<const char*>>{{"libleela_r.so", "ref.sgf"}}},
     {544, std::vector<std::vector<const char*>>{{"libnab_r.so", "1am0", "1122214447", "122"}}},
+    
+    {600, std::vector<std::vector<const char*>>{
+            {"libperlbench_s.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1"},
+            {"libperlbench_s.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300"},
+            {"libperlbench_s.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0"},
+        }
+    },
+    {605, std::vector<std::vector<const char*>>{{"libmcf_s.so", "inp.in"}}},
+    {620, std::vector<std::vector<const char*>>{{"libomnetpp_s.so", "-c", "General", "-r", "0"}}},
+    
+    {619, std::vector<std::vector<const char*>>{{"liblbm_s.so", "2000", "reference.dat", "0", "0", "200_200_260_ldc.of"}}},
+    
+    {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
+    {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
 };
 
 static napi_value Add(napi_env env, napi_callback_info info)
@@ -137,13 +159,29 @@ static napi_value Add(napi_env env, napi_callback_info info)
 
 }
 
-static napi_value Query(napi_env env, napi_callback_info info)
+int getCpuCount() {
+    int count = -1;
+    
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    if (sched_getaffinity(0, sizeof(set), &set) != -1) {
+        for (int i = 0; i < CPU_SETSIZE; ++i) {
+            if (CPU_ISSET(i, &set) && count < i) {
+                count = i;
+            }
+        }
+    }
+    count++;
+    return count;
+}
+
+static napi_value QueryCpuCount(napi_env env, napi_callback_info info)
 {
     napi_value nret;
+    
+    int count = getCpuCount();
 
-    std::lock_guard<std::mutex> lk(g_mutex);
-
-    napi_create_double(env, time_elapsed, &nret);
+    napi_create_int32(env, count, &nret);
     
     return nret;
 }
@@ -160,6 +198,16 @@ napi_status do_log_update(int test_no) {
 }
 
 std::string g_uimsg;
+
+extern "C" {
+    void nlog(const char* log) __attribute__((visibility("default")));
+}
+
+void nlog(const char* log) {
+    test_states[TEST_GLOBAL].status = status_t::Message;
+    test_states[TEST_GLOBAL].message = log;
+    do_log_update(TEST_GLOBAL);
+}
 
 void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
     int testNo = (size_t)data;
@@ -202,8 +250,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
         test_list.emplace_back(test_no);
     }
     
-    int cpu = -1;
-    napi_get_value_int32(env, args[1], &cpu);
+    int cpuidx = -1;
+    napi_get_value_int32(env, args[1], &cpuidx);
 
     /* Setup native-ts comm */
     napi_value resource_name = nullptr;
@@ -214,7 +262,20 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     /* Start tests in a child thread */
     if (t.joinable())
         t.join();
-    t = std::thread([test_list, cpu] {
+    t = std::thread([test_list, cpuidx] {
+        std::string cpuCountStr = std::to_string(getCpuCount());
+        if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
+            test_states[TEST_GLOBAL].status = status_t::Error;
+            test_states[TEST_GLOBAL].message = "Set OMP_NUM_THREADS failed";
+            do_log_update(TEST_GLOBAL);
+            return -1;
+        } else {
+            std::string msg = "Set OMP_NUM_THREADS = " + cpuCountStr;
+            test_states[TEST_GLOBAL].status = status_t::Error;
+            test_states[TEST_GLOBAL].message = msg;
+            do_log_update(TEST_GLOBAL);
+        }
+
         test_states[TEST_GLOBAL].status = status_t::Initializing;
         do_log_update(TEST_GLOBAL);
         int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
@@ -226,14 +287,16 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             return rc;
         }
 
-        cpu_set_t mask;
-        CPU_ZERO(&mask);
-        CPU_SET(cpu, &mask);
-        if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
-            test_states[TEST_GLOBAL].status = status_t::Error;
-            test_states[TEST_GLOBAL].message = "Set thread affinity failed";
-            do_log_update(TEST_GLOBAL);
-            return -1;
+        if (cpuidx >= 0) {
+            cpu_set_t mask;
+            CPU_ZERO(&mask);
+            CPU_SET(cpuidx, &mask);
+            if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
+                test_states[TEST_GLOBAL].status = status_t::Error;
+                test_states[TEST_GLOBAL].message = "Set thread affinity failed";
+                do_log_update(TEST_GLOBAL);
+                return -1;
+            }
         }
 
         for (const auto test_no: test_list) {
@@ -356,7 +419,7 @@ static napi_value Init(napi_env env, napi_value exports)
         { "add", nullptr, Add, nullptr, nullptr, nullptr, napi_default, nullptr },
 //         { "runTest", nullptr, RunTest, nullptr, nullptr, nullptr, napi_default, nullptr },
         { "runTests", nullptr, RunTests, nullptr, nullptr, nullptr, napi_default, nullptr },
-        { "query", nullptr, Query, nullptr, nullptr, nullptr, napi_default, nullptr },
+        { "queryCpuCount", nullptr, QueryCpuCount, nullptr, nullptr, nullptr, napi_default, nullptr },
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;
