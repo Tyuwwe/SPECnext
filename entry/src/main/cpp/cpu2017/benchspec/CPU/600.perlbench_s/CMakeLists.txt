@@ -101,9 +101,7 @@ target_compile_definitions(perlbench_s PRIVATE
 
 target_compile_options(perlbench_s PRIVATE -w
     -fno-strict-aliasing -fno-unsafe-math-optimizations -fno-finite-math-only -fgnu89-inline -fcommon
-    -fopenmp
-    -fvectorize
-    -Rpass-analysis=loop-vectorize -Rpass=loop-vectorize -Rpass-missed=loop-vectorize)
+    -fopenmp)
 
 
 target_link_libraries(perlbench_s PRIVATE wrap)
