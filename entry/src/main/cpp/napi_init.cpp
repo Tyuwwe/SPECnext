@@ -87,10 +87,14 @@ std::unordered_map<size_t, std::string> test_names{
     {554, "554.roms_r"},
     
     {600, "600.perlbench_s"},
+    {602, "602.gcc_s"},
     {605, "605.mcf_s"},
     {620, "620.omnetpp_s"},
     {623, "623.xalancbmk_s"},
     {625, "625.x264_s"},
+    {631, "631.deepsjeng_s"},
+    {641, "641.leela_s"},
+    {657, "657.xz_s"},
     
     {619, "619.lbm_s"},
     {638, "638.imagick_s"},
@@ -98,6 +102,7 @@ std::unordered_map<size_t, std::string> test_names{
 };
 
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
+    // INTrate
     {500, std::vector<std::vector<const char*>>{
             {"libperlbench_r.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1"},
             {"libperlbench_r.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300"},
@@ -106,6 +111,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     },
     {502, std::vector<std::vector<const char*>>{
             {"libgcc_r.so", "gcc-pp.c", "-O3", "-finline-limit=0", "-fif-conversion", "-fif-conversion2", "-o", "gcc-pp.opts-O3_-finline-limit_0_-fif-conversion_-fif-conversion2.s"},
+            {"libgcc_r.so", "gcc-pp.c", "-O2", "-finline-limit=36000", "-fpic", "-o", "gcc-pp.opts-O2_-finline-limit_36000_-fpic.s"},    
             {"libgcc_r.so", "gcc-smaller.c", "-O3", "-fipa-pta", "-o", "gcc-smaller.opts-O3_-fipa-pta.s"},
             {"libgcc_r.so", "ref32.c", "-O5", "-o", "ref32.opts-O5.s"},
             {"libgcc_r.so", "ref32.c", "-O3", "-fselective-scheduling", "-fselective-scheduling2", "-o", "ref32.opts-O3_-fselective-scheduling_-fselective-scheduling2.s"},
@@ -122,6 +128,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
         }
     },
     {531, std::vector<std::vector<const char*>>{{{"libdeepsjeng_r.so", "ref.txt"}}}},
+    {541, std::vector<std::vector<const char*>>{{"libleela_r.so", "ref.sgf"}}},
     {557, std::vector<std::vector<const char*>>{
             {"libxz_r.so", "cld.tar.xz", "160", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "59796407", "61004416", "6"},
             {"libxz_r.so", "cpu2006docs.tar.xz", "250", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "23047774", "23513385", "6e"},
@@ -129,19 +136,26 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
         }
     },
     
+    // FPrate
     {508, std::vector<std::vector<const char*>>{{"libnamd_r.so", "--input", "apoa1.input", "--output", "apoa1.ref.output", "--iterations", "65"}}},
     {510, std::vector<std::vector<const char*>>{{"libparest_r.so", "ref.prm"}}},
     {511, std::vector<std::vector<const char*>>{{"libpovray_r.so", "SPEC-benchmark-ref.ini"}}},
     {519, std::vector<std::vector<const char*>>{{"liblbm_r.so", "3000", "reference.dat", "0", "0", "100_100_130_ldc.of"}}},
     {526, std::vector<std::vector<const char*>>{{"libblender_r.so", "sh3_no_char.blend", "--render-output", "sh3_no_char_", "--threads", "1", "-b", "-F", "RAWTGA", "-s", "849", "-e", "849", "-a"}}},
     {538, std::vector<std::vector<const char*>>{{"libimagick_r.so", "-limit", "disk", "0", "refrate_input.tga", "-edge", "41", "-resample", "181%", "-emboss", "31", "-colorspace", "YUV", "-mean-shift", "19x19+15%", "-resize", "30%", "refrate_output.tga"}}},
-    {541, std::vector<std::vector<const char*>>{{"libleela_r.so", "ref.sgf"}}},
     {544, std::vector<std::vector<const char*>>{{"libnab_r.so", "1am0", "1122214447", "122"}}},
     
+    // INTspeed
     {600, std::vector<std::vector<const char*>>{
             {"libperlbench_s.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1"},
             {"libperlbench_s.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300"},
             {"libperlbench_s.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0"},
+        }
+    },
+    {602, std::vector<std::vector<const char*>>{
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-fipa-pta", "-o", "gcc-pp.opts-O5_-fipa-pta.s"},
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=1000", "-fselective-scheduling", "-fselective-scheduling2", "-o", "gcc-pp.opts-O5_-finline-limit_1000_-fselective-scheduling_-fselective-scheduling2.s"},
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=24000", "-fgcse", "-fgcse-las", "-fgcse-lm", "-fgcse-sm", "-o", "gcc-pp.opts-O5_-finline-limit_24000_-fgcse_-fgcse-las_-fgcse-lm_-fgcse-sm.s"}
         }
     },
     {605, std::vector<std::vector<const char*>>{{"libmcf_s.so", "inp.in"}}},
@@ -153,11 +167,20 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
             {"libx264_s.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_0500-1250_x264_s_base.mytest-m64_x264.out", "2>>", "run_0500-1250_x264_s_base.mytest-m64_x264.err"},
         }
     },
+    {631, std::vector<std::vector<const char*>>{{{"libdeepsjeng_s.so", "ref.txt"}}}},
+    {641, std::vector<std::vector<const char*>>{{"libleela_s.so", "ref.sgf"}}},
+    {657, std::vector<std::vector<const char*>>{
+            {"libxz_s.so", "cpu2006docs.tar.xz", "6643", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "1036078272", "1111795472", "4"},
+            {"libxz_s.so", "cld.tar.xz", "1400", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "536995164", "539938872", "8"}
+        }
+    },
     
+    // FPspeed
     {619, std::vector<std::vector<const char*>>{{"liblbm_s.so", "2000", "reference.dat", "0", "0", "200_200_260_ldc.of"}}},
     {638, std::vector<std::vector<const char*>>{{"libimagick_s.so", "-limit", "disk", "0", "refspeed_input.tga", "-resize", "817%", "-rotate", "-2.76", "-shave", "540x375", "-alpha", "remove", "-auto-level", "-contrast-stretch", "1x1%", "-colorspace", "Lab", "-channel", "R", "-equalize", "+channel", "-colorspace", "sRGB", "-define", "histogram:unique-colors=false", "-adaptive-blur", "0x5", "-despeckle", "-auto-gamma", "-adaptive-sharpen", "55", "-enhance", "-brightness-contrast", "10x10", "-resize", "30%", "refspeed_output.tga"}}},
     {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
     
+    // Other
     {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
     {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
 };

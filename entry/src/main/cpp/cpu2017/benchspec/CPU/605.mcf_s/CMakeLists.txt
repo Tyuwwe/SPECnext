@@ -11,7 +11,8 @@ add_library(mcf_s SHARED ${SRC_FILE_605} ${HEADER_FILE_605})
 
 target_compile_definitions(mcf_s PRIVATE
     -DSPEC
-    -DNDEBUG  
+    -DNDEBUG
+    -DSPEC_AUTO_SUPPRESS_OPENMP
     -DSPEC_OPENMP
     -DSPEC_LP64
 )

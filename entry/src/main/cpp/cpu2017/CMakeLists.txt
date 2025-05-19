@@ -40,10 +40,14 @@ add_subdirectory(benchspec/CPU/544.nab_r)
 
 # INTspeed
 add_subdirectory(benchspec/CPU/600.perlbench_s)
+add_subdirectory(benchspec/CPU/602.gcc_s)
 add_subdirectory(benchspec/CPU/605.mcf_s)
 add_subdirectory(benchspec/CPU/620.omnetpp_s)
 add_subdirectory(benchspec/CPU/623.xalancbmk_s)
 add_subdirectory(benchspec/CPU/625.x264_s)
+add_subdirectory(benchspec/CPU/631.deepsjeng_s)
+add_subdirectory(benchspec/CPU/641.leela_s)
+add_subdirectory(benchspec/CPU/657.xz_s)
 
 #FPspeed
 add_subdirectory(benchspec/CPU/619.lbm_s)
