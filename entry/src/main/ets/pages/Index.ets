@@ -4,6 +4,7 @@ import fs from '@ohos.file.fs';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
 import { zlib, BusinessError } from '@kit.BasicServicesKit';
+import { fileUri } from '@kit.CoreFileKit';
 
 async function resourceFile(resourcePath: string) {
   let uint8Array: Uint8Array = getContext()
@@ -30,13 +31,89 @@ async function decompressBundle(bundleRelPath: string) {
   const fileName = bundleRelPath.substring(bundleRelPath.lastIndexOf('/') + 1)
 
   const cwd = getContext().filesDir
+
+  const destPath = cwd + "/refdata"
+
+  const exists = fs.accessSync(destPath)
+  if (exists) {
+    fs.rmdirSync(destPath)
+  }
+  fs.mkdirSync(destPath)
+
   const bundlePath = cwd + '/' + fileName
-  await zlib.decompressFile(bundlePath, cwd)
+  await zlib.decompressFile(bundlePath, destPath)
+  await fs.listFile(destPath).then((filenames: Array<string>) => {
+    console.info("listFile decompressBundle succeed");
+    for (let i = 0; i < filenames.length; i++) {
+      console.info("fileName: %s", destPath + '/' + filenames[i]);
+    }
+  })
 }
 
-async function runTestList(testList: Array<number>, cpu: number, func: object) {
+const TEST_GLOBAL = -1
+
+async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: number, func: Function) {
+  // Show preflight message
+  let msg =
+    "Preflight check:\n" +
+      `affinity = ${cpu}\n` +
+      `copies = ${ncopies}\n` +
+      `tests = [`
+
+  for (let test of testList) {
+    msg += (test.name + ", ")
+  }
+  msg += "]\n"
+
+  func(Status.Message, TEST_GLOBAL, 0, msg)
+
+  // Set up tests
+  func(Status.Message, TEST_GLOBAL, 0, `Setting up tests...`)
+
+  const cwd = getContext().filesDir
+  const srcPath = cwd + "/refdata/"
+
+  try {
+    const rundir = cwd + "/run";
+    const exists = await fs.access(rundir)
+    if (exists) {
+      await fs.rmdir(rundir)
+    }
+    await fs.mkdir(rundir)
+
+    const srcExists = await fs.access(srcPath)
+    if (!srcExists)
+      throw Error("src not exist")
+  } catch (err) {
+    func(Status.Message, TEST_GLOBAL, 0, `Setup run dir failed: ${err}`)
+  }
+
+  for (let i = 0; i < ncopies; ++i) {
+    await fs.mkdir(cwd + `/run/${i}`)
+    for (let test of testList) {
+      const dstPath = cwd + `/run/${i}/${test.name}`
+      try {
+        await fs.mkdir(dstPath)
+        await fs.copyDir(srcPath, dstPath)
+      } catch (err) {
+        func(Status.Message, TEST_GLOBAL, 0, `Copy #${i}: ${test.name} failed: ${err}`)
+        return new Promise<number>((res, rej) => {
+          rej(err)
+        })
+      }
+      func(Status.Message, TEST_GLOBAL, 0, `Setup Copy #${i}: ${test.name} completed.`)
+    }
+    await fs.listFile(cwd + `/run/${i}`).then((filenames: Array<string>) => {
+      console.info("listFile succeed");
+      for (let i = 0; i < filenames.length; i++) {
+        console.info("fileName: %s", cwd + `/run/${i}` + '/' + filenames[i]);
+      }
+    })
+  }
+
+  // Run tests
   return new Promise<number>((resolve, reject) => {
-    let ret = testNapi.runTests(testList, cpu, func);
+    let ret = testNapi.runTests(testList.map(test => test.id), cpu, ncopies, func);
     if (ret == 0) resolve(0);
     else reject(ret);
   })
@@ -143,6 +220,7 @@ struct Index {
   cpuCount: number = 0;
   @State cpuOptions: Array<SelectOption> = [];
   @State currentCpuSelection: number = -1;
+  @State ncopies: number = 1;
   path: string = "";
   @State refreshCount: number = 0;
   @State globalStatus: Status = Status.Idle;
@@ -194,13 +272,13 @@ struct Index {
     new TestItem('644.nab_s',       TestType.FPspeed, false, Status.Skipped, 17472,  -1, -1, ""),
 
     // Other
+    new TestItem('9997.llama-server',TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9998.c2clat',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9999.vkpeak',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
   ];
 
 
   onStateChange = async (newStatus: Status, test: number, time: number, msg: string) => {
-    const TEST_GLOBAL = -1
     // this.message = message
 
     if (test == TEST_GLOBAL) {
@@ -245,9 +323,11 @@ struct Index {
         break
       case Status.Completed:
           this.message += "\n"
-          this.message += this.testList[idx].name + " completed, elapsed " + time.toFixed(2) + "s."
           this.testList[idx].time = time
           this.testList[idx].score = this.testList[idx].reftime / time
+          this.message += this.testList[idx].name + " completed, elapsed " +
+            this.testList[idx].time.toFixed(2) + "s, scored " +
+            (this.testList[idx].reftime / time).toFixed(2) + "pts."
         break
       case Status.Error:
         this.message += "\n"
@@ -384,13 +464,20 @@ struct Index {
         Row() {
           Select(this.cpuOptions)
             .value("Core affinity")
-            .width('40%')
+            .width('30%')
             .enabled(this.globalStatus == Status.Idle)
             .onSelect((index: number, text?: string | undefined) => {
               if (index >= this.cpuCount)
                 this.currentCpuSelection = -1;
               this.currentCpuSelection = index;
             })
+
+          TextInput({placeholder: "n copies"})
+            .width('30%')
+            .onChange((value: string) => {
+              this.ncopies = parseInt(value)
+            })
+
 
           if (this.globalStatus != Status.Completed) {
             Button("Run")
@@ -405,16 +492,14 @@ struct Index {
                   else item.status = Status.Skipped
                 })
 
-                let idToRun = this.testList.filter(item => item.checked)
-                  .map(item => item.id)
-                runTestList(idToRun, this.currentCpuSelection, this.onStateChange)
+                let testsToRun = this.testList.filter(item => item.checked)
+                  // .map(item => item.id)
+                runTestList(testsToRun, this.currentCpuSelection, this.ncopies, this.onStateChange)
                   .then(res => this.globalStatus = Status.Completed)
-
-                // let ret = await runTest(505, this.onStateChange);
-
+                  .catch(() => this.globalStatus = Status.Completed)
               })
               .padding('2%')
-              .width('40%')
+              .width('30%')
               .enabled(this.globalStatus == Status.Idle)
           } else {
             Button("Reset")
@@ -425,7 +510,7 @@ struct Index {
                 this.message += '\nIdle'
               })
               .padding('2%')
-              .width('40%')
+              .width('30%')
               .enabled(this.globalStatus == Status.Completed)
           }
         }
@@ -441,9 +526,12 @@ struct Index {
         this.path = res
         hilog.info(0x0000, 'testTag', 'path: %{public}s', this.path)
 
-        await decompressBundle('spec_payload.zip')
+        this.globalStatus = Status.Pending
+        decompressBundle('spec_payload.zip').then(() => {
+          this.globalStatus = Status.Idle
+        })
 
-        // Keep screen always on
+      // Keep screen always on
         let windowClass = await window.getLastWindow(this.context)
         await windowClass.setWindowKeepScreenOn(true)
     })

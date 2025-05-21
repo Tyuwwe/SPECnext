@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstddef>
 #include <mutex>
+#include <condition_variable>
 #include <rawfile/raw_file.h>
 #include <rawfile/raw_dir.h>
 #include <rawfile/raw_file_manager.h>
@@ -58,7 +59,7 @@ struct state_t {
     std::string message = "";
 };
 
-std::unordered_map<size_t, state_t> test_states;
+std::vector<std::unordered_map<size_t, state_t>> test_states;
 
 std::unordered_map<size_t, std::string> test_names{
     {500, "500.perlbench_r"},
@@ -99,6 +100,8 @@ std::unordered_map<size_t, std::string> test_names{
     {619, "619.lbm_s"},
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
+    
+    {9997, "9997.llama-server"},
 };
 
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
@@ -181,6 +184,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
     
     // Other
+    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000"}}},
     {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
     {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
 };
@@ -191,7 +195,6 @@ static napi_value Add(napi_env env, napi_callback_info info)
     napi_create_double(env, (double)0, &nret);
 
     return nret;
-
 }
 
 int getCpuCount() {
@@ -223,9 +226,11 @@ static napi_value QueryCpuCount(napi_env env, napi_callback_info info)
 
 napi_threadsafe_function g_log_callback = NULL;
 
-napi_status do_log_update(int test_no) {
+napi_status do_log_update(int copy, int test_no) {
     if (g_log_callback != nullptr) {
-        auto ret = napi_call_threadsafe_function(g_log_callback, (void*)test_no, napi_tsfn_blocking);
+        uint64_t data = test_no;
+        data |= ((uint64_t)copy << 32);
+        auto ret = napi_call_threadsafe_function(g_log_callback, (void*)data, napi_tsfn_blocking);
         assert(ret == napi_ok);
         return ret;
     }
@@ -239,18 +244,19 @@ extern "C" {
 }
 
 void nlog(const char* log) {
-    test_states[TEST_GLOBAL].status = status_t::Message;
-    test_states[TEST_GLOBAL].message = log;
-    do_log_update(TEST_GLOBAL);
+    test_states[0][TEST_GLOBAL].status = status_t::Message;
+    test_states[0][TEST_GLOBAL].message = log;
+    do_log_update(0, TEST_GLOBAL);
 }
 
 void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
-    int testNo = (size_t)data;
+    int testNo = ((uint64_t)data & 0xFFFF);
+    int copy = ((uint64_t)data >> 32);
 
     auto name = test_names[testNo];
-    auto status = test_states[testNo].status;
-    auto time = test_states[testNo].time;
-    auto errormsg = test_states[testNo].message;
+    auto status = test_states[copy][testNo].status;
+    auto time = test_states[copy][testNo].time;
+    auto errormsg = test_states[copy][testNo].message;
 
     int argc = 4;
     napi_value args[4] = {nullptr};
@@ -265,60 +271,82 @@ void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
     napi_call_function(env, nullptr, /*func=*/js_fun, argc, args, &result);
 }
 
-static napi_value RunTests(napi_env env, napi_callback_info info) {
-    size_t argc = 3;
 
-    // [test_list, cpu, callback_func]
-    napi_value args[3] = {nullptr};
+// [test_list, cpu, ncopies, callback_func]
+// Should be derived from ArkTS side
+#define ARGC 4
+static napi_value RunTests(napi_env env, napi_callback_info info) {
+    napi_value ret;
+    napi_create_double(env, 0, &ret);
+    
+    size_t argc = ARGC;
+
+    napi_value args[ARGC] = {nullptr};
+    napi_value& nvalue_test_list = args[0];
+    napi_value& nvalue_cpu = args[1];
+    napi_value& nvalue_ncopies = args[2];
+    napi_value& nvalue_callback = args[3];
 
     napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+    
+    assert(argc == ARGC);
 
     uint32_t length = 0;
-    napi_get_array_length(env, args[0], &length);
+    napi_get_array_length(env, nvalue_test_list, &length);
 
     std::vector<int> test_list;
     for (uint32_t i = 0; i < length; ++i) {
         napi_value result;
-        napi_get_element(env, args[0], i, &result);
+        napi_get_element(env, nvalue_test_list, i, &result);
         int test_no = 0;
         napi_get_value_int32(env, result, &test_no);
         test_list.emplace_back(test_no);
     }
     
     int cpuidx = -1;
-    napi_get_value_int32(env, args[1], &cpuidx);
+    napi_get_value_int32(env, nvalue_cpu, &cpuidx);
+    
+    int ncopies = 1;
+    napi_get_value_int32(env, nvalue_ncopies, &ncopies);
+    
+    if (ncopies < 1) {
+        test_states[0][TEST_GLOBAL].status = status_t::Error;
+        test_states[0][TEST_GLOBAL].message = "Error: ncopies < 1";
+        do_log_update(0,TEST_GLOBAL);
+        return ret;
+    }
 
     /* Setup native-ts comm */
     napi_value resource_name = nullptr;
     napi_create_string_utf8(env, "native-ts comm", NAPI_AUTO_LENGTH, &resource_name);
-    auto r = napi_create_threadsafe_function(env, args[2], nullptr, resource_name, 0, 1, nullptr, nullptr, nullptr, Callback, &g_log_callback);
+    auto r = napi_create_threadsafe_function(env, nvalue_callback, nullptr, resource_name, 0, 1, nullptr, nullptr, nullptr, Callback, &g_log_callback);
     assert(r == napi_ok);
     
     /* Start tests in a child thread */
     if (t.joinable())
         t.join();
-    t = std::thread([test_list, cpuidx] {
+    t = std::thread([test_list, cpuidx, ncopies] {
         std::string cpuCountStr = std::to_string(getCpuCount());
         if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
-            test_states[TEST_GLOBAL].status = status_t::Error;
-            test_states[TEST_GLOBAL].message = "Set OMP_NUM_THREADS failed";
-            do_log_update(TEST_GLOBAL);
+            test_states[0][TEST_GLOBAL].status = status_t::Error;
+            test_states[0][TEST_GLOBAL].message = "Set OMP_NUM_THREADS failed";
+            do_log_update(0, TEST_GLOBAL);
             return -1;
         } else {
             std::string msg = "Set OMP_NUM_THREADS = " + cpuCountStr;
-            test_states[TEST_GLOBAL].status = status_t::Error;
-            test_states[TEST_GLOBAL].message = msg;
-            do_log_update(TEST_GLOBAL);
+            test_states[0][TEST_GLOBAL].status = status_t::Error;
+            test_states[0][TEST_GLOBAL].message = msg;
+            do_log_update(0, TEST_GLOBAL);
         }
 
-        test_states[TEST_GLOBAL].status = status_t::Initializing;
-        do_log_update(TEST_GLOBAL);
+        test_states[0][TEST_GLOBAL].status = status_t::Initializing;
+        do_log_update(0, TEST_GLOBAL);
         int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
-
+        
         if (rc != 0) {
-            test_states[TEST_GLOBAL].status = status_t::Error;
-            test_states[TEST_GLOBAL].message = "Set thread QoS failed";
-            do_log_update(TEST_GLOBAL);
+            test_states[0][TEST_GLOBAL].status = status_t::Error;
+            test_states[0][TEST_GLOBAL].message = "Set thread QoS failed";
+            do_log_update(0, TEST_GLOBAL);
             return rc;
         }
 
@@ -327,28 +355,21 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             CPU_ZERO(&mask);
             CPU_SET(cpuidx, &mask);
             if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
-                test_states[TEST_GLOBAL].status = status_t::Error;
-                test_states[TEST_GLOBAL].message = "Set thread affinity failed";
-                do_log_update(TEST_GLOBAL);
+                test_states[0][TEST_GLOBAL].status = status_t::Error;
+                test_states[0][TEST_GLOBAL].message = "Set thread affinity failed";
+                do_log_update(0, TEST_GLOBAL);
                 return -1;
             }
         }
 
         for (const auto test_no: test_list) {
-            test_states[test_no].status = status_t::Initializing;
-            do_log_update(test_no);
+            test_states[0][test_no].status = status_t::Initializing;
+            do_log_update(0, test_no);
             
             if (test_cmdline.find(test_no) == test_cmdline.end()){
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = "cannot find cmdlist";
-                do_log_update(test_no);
-                continue;
-            }
-                
-            if (chdir((std::string(SANDBOX_PATH) + '/' + test_names[test_no]).c_str()) != 0) {
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = "chdir failed";
-                do_log_update(test_no);
+                test_states[0][test_no].status = status_t::Error;
+                test_states[0][test_no].message = "cannot find cmdlist";
+                do_log_update(0, test_no);
                 continue;
             }
                 
@@ -356,38 +377,36 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             const char* libname = cmds[0][0];
             void* plib = dlopen(libname, RTLD_LAZY);
             if (plib == NULL) {
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = std::string("cannot open lib: ") + dlerror();
-                do_log_update(test_no);
+                test_states[0][test_no].status = status_t::Error;
+                test_states[0][test_no].message = std::string("cannot open lib: ") + dlerror();
+                do_log_update(0, test_no);
                 continue;
             }
             
             specmain_t f_main = (specmain_t)dlsym(plib, "main");
             if (f_main == NULL) {
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = std::string("cannot get main func: ") + dlerror();
-                do_log_update(test_no);
+                test_states[0][test_no].status = status_t::Error;
+                test_states[0][test_no].message = std::string("cannot get main func: ") + dlerror();
+                do_log_update(0, test_no);
                 continue;
             }
                 
             dlclose(plib); // Will re-open it later when running
             
-//             if (test_no == 500 || test_no == 502 || test_no == 531 || test_no == 557 || 
-//                 test_no == 521 || test_no == 527) {
-//                 __wrap = true;
-//             } else {
-//                 __wrap = false;
-//             }
-                
-//            test_states[test_no].status = status_t::Running;
-//            do_log_update(test_no);
-    
             double time = 0;
             int ret = 0;
+            
+            if (chdir((std::string(SANDBOX_PATH) + "/run/0/" + test_names[test_no]).c_str()) != 0) {
+                test_states[0][test_no].status = status_t::Error;
+                test_states[0][test_no].message = "chdir failed";
+                do_log_update(0, test_no);
+                continue;
+            }
+            
             for (int i = 0; i < cmds.size(); ++i) {
-                test_states[test_no].status = status_t::Running;
-                test_states[test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
-                do_log_update(test_no);
+                test_states[0][test_no].status = status_t::Running;
+                test_states[0][test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
+                do_log_update(0, test_no);
                 
                 plib = dlopen(libname, RTLD_NOW);
                 f_main = (specmain_t)dlsym(plib, "main");
@@ -412,9 +431,9 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 dlclose(plib); // detach lib to release memory leak in some tests (502?)
                 
                 if (ret != 0) {
-                    test_states[test_no].status = status_t::Error;
-                    test_states[test_no].message = "main func returned: " + std::to_string(ret);
-                    do_log_update(test_no);
+                    test_states[0][test_no].status = status_t::Error;
+                    test_states[0][test_no].message = "main func returned: " + std::to_string(ret);
+                    do_log_update(0, test_no);
                     break;
                 }
             }
@@ -422,13 +441,13 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 continue;
             }
             
-            test_states[test_no].status = status_t::Completed;
-            test_states[test_no].time = time;
-            do_log_update(test_no);
+            test_states[0][test_no].status = status_t::Completed;
+            test_states[0][test_no].time = time;
+            do_log_update(0, test_no);
         }
 
-        test_states[TEST_GLOBAL].status = status_t::Completed;
-        do_log_update(TEST_GLOBAL);
+        test_states[0][TEST_GLOBAL].status = status_t::Completed;
+        do_log_update(0, TEST_GLOBAL);
         
         return 0;
     });
@@ -436,8 +455,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 //     if (t.joinable())
 //         t.join();
 
-    napi_value ret;
-    napi_create_double(env, 0, &ret);
     return ret;
 }
 
