@@ -71,7 +71,7 @@ async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: numb
   func(Status.Message, TEST_GLOBAL, 0, `Setting up tests...`)
 
   const cwd = getContext().filesDir
-  const srcPath = cwd + "/refdata/"
+  const srcPath = cwd + "/refdata"
 
   try {
     const rundir = cwd + "/run";
@@ -89,12 +89,13 @@ async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: numb
   }
 
   for (let i = 0; i < ncopies; ++i) {
-    await fs.mkdir(cwd + `/run/${i}`)
+    const curRunDir = `${cwd}/run/${i}`
+    await fs.mkdir(curRunDir)
     for (let test of testList) {
-      const dstPath = cwd + `/run/${i}/${test.name}`
+      const localSrcPath = `${srcPath}/${test.name}`
+      const localDstPath = curRunDir
       try {
-        await fs.mkdir(dstPath)
-        await fs.copyDir(srcPath, dstPath)
+        await fs.copyDir(localSrcPath, localDstPath, 1)
       } catch (err) {
         func(Status.Message, TEST_GLOBAL, 0, `Copy #${i}: ${test.name} failed: ${err}`)
         return new Promise<number>((res, rej) => {
@@ -103,14 +104,16 @@ async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: numb
       }
       func(Status.Message, TEST_GLOBAL, 0, `Setup Copy #${i}: ${test.name} completed.`)
     }
-    await fs.listFile(cwd + `/run/${i}`).then((filenames: Array<string>) => {
-      console.info("listFile succeed");
-      for (let i = 0; i < filenames.length; i++) {
-        console.info("fileName: %s", cwd + `/run/${i}` + '/' + filenames[i]);
-      }
-    })
+
+    // await fs.listFile(curRunDir + "/500.perlbench_r").then((filenames: Array<string>) => {
+    //   console.info(`ls ${curRunDir}/500.perlbench_r`);
+    //   for (let i = 0; i < filenames.length; i++) {
+    //     console.info("fileName: %s",  `${filenames[i]}`);
+    //   }
+    // })
   }
 
+  func(Status.Message, TEST_GLOBAL, 0, `Initiating tests...`)
   // Run tests
   return new Promise<number>((resolve, reject) => {
     let ret = testNapi.runTests(testList.map(test => test.id), cpu, ncopies, func);
@@ -474,6 +477,7 @@ struct Index {
 
           TextInput({placeholder: "n copies"})
             .width('30%')
+            .enabled(this.globalStatus == Status.Idle)
             .onChange((value: string) => {
               this.ncopies = parseInt(value)
             })

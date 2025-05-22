@@ -27,3 +27,4 @@ target_link_libraries(entry PUBLIC
 add_subdirectory(cpu2017)
 add_subdirectory(vkpeak)
 add_subdirectory(c2clat)
+#add_subdirectory(llama.cpp)

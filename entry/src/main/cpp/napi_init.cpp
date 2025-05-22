@@ -228,8 +228,11 @@ napi_threadsafe_function g_log_callback = NULL;
 
 napi_status do_log_update(int copy, int test_no) {
     if (g_log_callback != nullptr) {
-        uint64_t data = test_no;
-        data |= ((uint64_t)copy << 32);
+        uint64_t data = 0;
+        int* p = (int*)(&data);
+        p[0] = copy;
+        p[1] = test_no;
+        
         auto ret = napi_call_threadsafe_function(g_log_callback, (void*)data, napi_tsfn_blocking);
         assert(ret == napi_ok);
         return ret;
@@ -250,8 +253,12 @@ void nlog(const char* log) {
 }
 
 void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
-    int testNo = ((uint64_t)data & 0xFFFF);
-    int copy = ((uint64_t)data >> 32);
+    int* pdata = reinterpret_cast<int*>(&data);
+    int copy = pdata[0];
+    int testNo = pdata[1];
+    
+    assert(testNo == TEST_GLOBAL || (testNo >= 500 && testNo <= 700) || (testNo > 9000 && testNo < 10000));
+    assert(copy >= 0 && copy <= 100);
 
     auto name = test_names[testNo];
     auto status = test_states[copy][testNo].status;
@@ -309,11 +316,25 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     int ncopies = 1;
     napi_get_value_int32(env, nvalue_ncopies, &ncopies);
     
+    test_states.resize(1);
+    test_states[0][TEST_GLOBAL];
     if (ncopies < 1) {
         test_states[0][TEST_GLOBAL].status = status_t::Error;
         test_states[0][TEST_GLOBAL].message = "Error: ncopies < 1";
         do_log_update(0,TEST_GLOBAL);
         return ret;
+    } else {
+        test_states.resize(ncopies);
+    }
+    
+    // Create states beforehand
+    // avoiding rehash in multithreaded environment
+    for (int nc; nc < ncopies; ++nc) {
+        auto& state = test_states[nc];
+        state[TEST_GLOBAL];
+        for (auto& test: test_names) {
+            state[test.first];
+        }
     }
 
     /* Setup native-ts comm */
@@ -396,7 +417,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             double time = 0;
             int ret = 0;
             
-            if (chdir((std::string(SANDBOX_PATH) + "/run/0/" + test_names[test_no]).c_str()) != 0) {
+            const std::string testpath = SANDBOX_PATH "/run/0/" + test_names[test_no];
+            if (chdir(testpath.c_str()) != 0) {
                 test_states[0][test_no].status = status_t::Error;
                 test_states[0][test_no].message = "chdir failed";
                 do_log_update(0, test_no);
