@@ -41,7 +41,7 @@ typedef void (* specfinalize_t)();
 std::thread t;
 double time_elapsed = -1;
 
-std::mutex g_mutex;
+std::mutex g_state_mtx;
 
 enum class status_t: int32_t {
     Skipped = 0,
@@ -233,9 +233,9 @@ static napi_value QueryCpuCount(napi_env env, napi_callback_info info)
 
 napi_threadsafe_function g_log_callback = NULL;
 
-napi_status do_log_update(int test_no) {
+napi_status do_log_update() {
     if (g_log_callback != nullptr) {
-        auto ret = napi_call_threadsafe_function(g_log_callback, (void*)test_no, napi_tsfn_blocking);
+        auto ret = napi_call_threadsafe_function(g_log_callback, (void*)nullptr, napi_tsfn_blocking);
         assert(ret == napi_ok);
         return ret;
     }
@@ -248,31 +248,43 @@ extern "C" {
     void nlog(const char* log) __attribute__((visibility("default")));
 }
 
-void nlog(const char* log) {
-    test_states[TEST_GLOBAL].status = status_t::Message;
-    test_states[TEST_GLOBAL].message = log;
-    do_log_update(TEST_GLOBAL);
+void push_state(int test_no, status_t status, std::string message, double time = 0) {
+    std::unique_lock<std::mutex> lk(g_state_mtx);
+    auto& state = test_states.emplace_back();
+    
+    state.test_no = test_no;
+    state.status = status;
+    state.message = message;
+    state.time = time;
+}
+
+void nlog(const char *log) {
+    push_state(TEST_GLOBAL, status_t::Message, log);
+    do_log_update();
 }
 
 void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
-    int testNo = (size_t)data;
-
-    auto name = test_names[testNo];
-    auto status = test_states[testNo].status;
-    auto time = test_states[testNo].time;
-    auto errormsg = test_states[testNo].message;
-
-    int argc = 4;
-    napi_value args[4] = {nullptr};
-
-    napi_create_int32(env, (int)status, &args[0]);
-    napi_create_int32(env, testNo, &args[1]);
-    napi_create_double(env, time, &args[2]);
-//    g_uimsg = errormsg;
-
-    napi_create_string_utf8(env, errormsg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
-    napi_value result = nullptr;
-    napi_call_function(env, nullptr, /*func=*/js_fun, argc, args, &result);
+    std::unique_lock<std::mutex> lk(g_state_mtx);
+    
+    for (auto& state: test_states) {
+        auto testNo = state.test_no;
+        auto name = test_names[state.test_no];
+        auto status = state.status;
+        auto time = state.time;
+        auto errormsg = state.message;
+    
+        int argc = 4;
+        napi_value args[4] = {nullptr};
+    
+        napi_create_int32(env, (int)status, &args[0]);
+        napi_create_int32(env, testNo, &args[1]);
+        napi_create_double(env, time, &args[2]);
+    
+        napi_create_string_utf8(env, errormsg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
+        napi_value result = nullptr;
+        napi_call_function(env, nullptr, /*func=*/js_fun, argc, args, &result);
+    }
+    test_states.clear();
 }
 
 static napi_value RunTests(napi_env env, napi_callback_info info) {
@@ -310,25 +322,21 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     t = std::thread([test_list, cpuidx] {
         std::string cpuCountStr = std::to_string(getCpuCount());
         if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
-            test_states[TEST_GLOBAL].status = status_t::Error;
-            test_states[TEST_GLOBAL].message = "Set OMP_NUM_THREADS failed";
-            do_log_update(TEST_GLOBAL);
+            push_state(TEST_GLOBAL, status_t::Error, "Set OMP_NUM_THREADS failed");
+            do_log_update();
             return -1;
         } else {
-            std::string msg = "Set OMP_NUM_THREADS = " + cpuCountStr;
-            test_states[TEST_GLOBAL].status = status_t::Error;
-            test_states[TEST_GLOBAL].message = msg;
-            do_log_update(TEST_GLOBAL);
+            push_state(TEST_GLOBAL, status_t::Message, "Set OMP_NUM_THREADS = " + cpuCountStr);
+            do_log_update();
         }
 
-        test_states[TEST_GLOBAL].status = status_t::Initializing;
-        do_log_update(TEST_GLOBAL);
+        push_state(TEST_GLOBAL, status_t::Initializing, "");
+        do_log_update();
         int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
 
         if (rc != 0) {
-            test_states[TEST_GLOBAL].status = status_t::Error;
-            test_states[TEST_GLOBAL].message = "Set thread QoS failed";
-            do_log_update(TEST_GLOBAL);
+            push_state(TEST_GLOBAL, status_t::Error, "Set thread QoS failed");
+            do_log_update();
             return rc;
         }
 
@@ -337,28 +345,25 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             CPU_ZERO(&mask);
             CPU_SET(cpuidx, &mask);
             if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
-                test_states[TEST_GLOBAL].status = status_t::Error;
-                test_states[TEST_GLOBAL].message = "Set thread affinity failed";
-                do_log_update(TEST_GLOBAL);
+                push_state(TEST_GLOBAL, status_t::Error, "Set thread affinity failed");
+                do_log_update();
                 return -1;
             }
         }
 
         for (const auto test_no: test_list) {
-            test_states[test_no].status = status_t::Initializing;
-            do_log_update(test_no);
+            push_state(test_no, status_t::Initializing, "");
+            do_log_update();
             
             if (test_cmdline.find(test_no) == test_cmdline.end()){
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = "cannot find cmdlist";
-                do_log_update(test_no);
+                push_state(test_no, status_t::Error, "cannot find cmdlist");
+                do_log_update();
                 continue;
             }
                 
             if (chdir((std::string(SANDBOX_PATH) + '/' + test_names[test_no]).c_str()) != 0) {
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = "chdir failed";
-                do_log_update(test_no);
+                push_state(test_no, status_t::Error, "chdir failed");
+                do_log_update();
                 continue;
             }
             
@@ -369,17 +374,15 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             const char* libname = cmds[0][0];
             void* plib = dlopen(libname, RTLD_LAZY);
             if (plib == NULL) {
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = std::string("cannot open lib: ") + dlerror();
-                do_log_update(test_no);
+                push_state(test_no, status_t::Error, std::string("cannot open lib: ") + dlerror());
+                do_log_update();
                 continue;
             }
             
             specmain_t f_main = (specmain_t)dlsym(plib, "main");
             if (f_main == NULL) {
-                test_states[test_no].status = status_t::Error;
-                test_states[test_no].message = std::string("cannot get main func: ") + dlerror();
-                do_log_update(test_no);
+                push_state(test_no, status_t::Error, std::string("cannot get main func: ") + dlerror());
+                do_log_update();
                 continue;
             }
                 
@@ -398,9 +401,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             double time = 0;
             int ret = 0;
             for (int i = 0; i < cmds.size(); ++i) {
-                test_states[test_no].status = status_t::Running;
-                test_states[test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
-                do_log_update(test_no);
+                push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
+                do_log_update();
                 
                 plib = dlopen(libname, RTLD_NOW);
                 f_main = (specmain_t)dlsym(plib, "main");
@@ -413,8 +415,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     f_init();
                 
                 auto begin = std::chrono::steady_clock::now();
-                printf("test test test\n");
-//                ret = f_main(cmds[i].size(), argv);
+                ret = f_main(cmds[i].size(), argv);
+//                printf("test test test\n");
                 auto end = std::chrono::steady_clock::now();
                 
                 double laptime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1e6;
@@ -429,13 +431,14 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 {
 //                    FILE *fstdout = fopen(STDOUT_FILENAME, "r");
                     if (fstdout) {
+                        fflush(fstdout);
                         fseek(fstdout, 0, SEEK_END);
                         auto outsize = ftell(fstdout);
                         fseek(fstdout, 0, SEEK_SET);
                         std::string str_stdout(outsize + 1, '\0');
                         fread(str_stdout.data(), 1, outsize, fstdout);
-                        test_states[TEST_GLOBAL].status = status_t::Message;
-                        test_states[TEST_GLOBAL].message = "stdout: \n" + str_stdout;
+                        push_state(TEST_GLOBAL, status_t::Message, "stdout: \n" + str_stdout);
+                        do_log_update();
                         fclose(fstdout);
                     }
                 }
@@ -443,23 +446,21 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 {
 //                    FILE *fstderr = fopen(STDERR_FILENAME, "r");
                     if (fstderr) {
+                        fflush(fstdout);
                         fseek(fstderr, 0, SEEK_END);
                         auto errsize = ftell(fstderr);
                         fseek(fstderr, 0, SEEK_SET);
                         std::string str_stderr(errsize + 1, '\0');
                         fread(str_stderr.data(), 1, errsize, fstderr);
-                        test_states[TEST_GLOBAL].status = status_t::Message;
-                        test_states[TEST_GLOBAL].message += "stderr: \n" + str_stderr;
+                        push_state(TEST_GLOBAL, status_t::Message, "stderr: \n" + str_stderr);
+                        do_log_update();
                         fclose(fstderr);
                     }
                 }
                 
-                do_log_update(TEST_GLOBAL);
-                
                 if (ret != 0) {
-                    test_states[test_no].status = status_t::Error;
-                    test_states[test_no].message = "main func returned: " + std::to_string(ret);
-                    do_log_update(test_no);
+                    push_state(test_no, status_t::Error, "main func returned: " + std::to_string(ret));
+                    do_log_update();
                     break;
                 }
             }
@@ -467,13 +468,12 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 continue;
             }
             
-            test_states[test_no].status = status_t::Completed;
-            test_states[test_no].time = time;
-            do_log_update(test_no);
+            push_state(test_no, status_t::Completed, "", time);
+            do_log_update();
         }
 
-        test_states[TEST_GLOBAL].status = status_t::Completed;
-        do_log_update(TEST_GLOBAL);
+        push_state(TEST_GLOBAL, status_t::Completed, "");
+        do_log_update();
         
         return 0;
     });
