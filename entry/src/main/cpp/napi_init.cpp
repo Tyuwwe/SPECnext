@@ -27,6 +27,9 @@
 
 #define SANDBOX_PATH "/data/storage/el2/base/haps/entry/files"
 
+#define STDOUT_FILENAME "stdout.log"
+#define STDERR_FILENAME "stderr.log"
+
 #define TEST_GLOBAL -1
 
 const unsigned int LOG_PRINT_DOMAIN = 0xFF00;
@@ -53,12 +56,14 @@ enum class status_t: int32_t {
 };
 
 struct state_t {
+    size_t test_no = TEST_GLOBAL;
     status_t status = status_t::Skipped;
     double time = 0.;
     std::string message = "";
 };
 
-std::unordered_map<size_t, state_t> test_states;
+//std::unordered_map<size_t, state_t> test_states;
+std::vector<state_t> test_states;
 
 std::unordered_map<size_t, std::string> test_names{
     {500, "500.perlbench_r"},
@@ -99,6 +104,9 @@ std::unordered_map<size_t, std::string> test_names{
     {619, "619.lbm_s"},
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
+    
+    {9996, "9996.p7zip"},
+    {9997, "9997.llama-server"},
 };
 
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
@@ -181,6 +189,8 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
     
     // Other
+    {9996, std::vector<std::vector<const char*>>{{"lib7za.so", "b", "-m=*"}}},
+    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000"}}},
     {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
     {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
 };
@@ -258,9 +268,9 @@ void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
     napi_create_int32(env, (int)status, &args[0]);
     napi_create_int32(env, testNo, &args[1]);
     napi_create_double(env, time, &args[2]);
-    g_uimsg = errormsg;
+//    g_uimsg = errormsg;
 
-    napi_create_string_utf8(env, g_uimsg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
+    napi_create_string_utf8(env, errormsg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
     napi_value result = nullptr;
     napi_call_function(env, nullptr, /*func=*/js_fun, argc, args, &result);
 }
@@ -351,6 +361,9 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 do_log_update(test_no);
                 continue;
             }
+            
+            FILE *fstdout = freopen(STDOUT_FILENAME, "w+", stdout);
+            FILE *fstderr = freopen(STDERR_FILENAME, "w+", stderr);
                 
             auto& cmds = test_cmdline[test_no];
             const char* libname = cmds[0][0];
@@ -400,7 +413,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     f_init();
                 
                 auto begin = std::chrono::steady_clock::now();
-                ret = f_main(cmds[i].size(), argv);
+                printf("test test test\n");
+//                ret = f_main(cmds[i].size(), argv);
                 auto end = std::chrono::steady_clock::now();
                 
                 double laptime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1e6;
@@ -410,6 +424,37 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 if (f_finalize)
                     f_finalize();
                 dlclose(plib); // detach lib to release memory leak in some tests (502?)
+
+                // Print stdout and stderr
+                {
+//                    FILE *fstdout = fopen(STDOUT_FILENAME, "r");
+                    if (fstdout) {
+                        fseek(fstdout, 0, SEEK_END);
+                        auto outsize = ftell(fstdout);
+                        fseek(fstdout, 0, SEEK_SET);
+                        std::string str_stdout(outsize + 1, '\0');
+                        fread(str_stdout.data(), 1, outsize, fstdout);
+                        test_states[TEST_GLOBAL].status = status_t::Message;
+                        test_states[TEST_GLOBAL].message = "stdout: \n" + str_stdout;
+                        fclose(fstdout);
+                    }
+                }
+
+                {
+//                    FILE *fstderr = fopen(STDERR_FILENAME, "r");
+                    if (fstderr) {
+                        fseek(fstderr, 0, SEEK_END);
+                        auto errsize = ftell(fstderr);
+                        fseek(fstderr, 0, SEEK_SET);
+                        std::string str_stderr(errsize + 1, '\0');
+                        fread(str_stderr.data(), 1, errsize, fstderr);
+                        test_states[TEST_GLOBAL].status = status_t::Message;
+                        test_states[TEST_GLOBAL].message += "stderr: \n" + str_stderr;
+                        fclose(fstderr);
+                    }
+                }
+                
+                do_log_update(TEST_GLOBAL);
                 
                 if (ret != 0) {
                     test_states[test_no].status = status_t::Error;
