@@ -194,6 +194,7 @@ struct Index {
     new TestItem('644.nab_s',       TestType.FPspeed, false, Status.Skipped, 17472,  -1, -1, ""),
 
     // Other
+    new TestItem('9995.ffmpeg',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9996.p7zip',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9997.llama-server',TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9998.c2clat',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
@@ -372,7 +373,7 @@ struct Index {
 
         Row() {
           TextArea({ text: this.message })
-            .width('90%')
+            .width('95%')
             .height('20%')
             .padding('1%')
             .fontSize(10)
@@ -384,15 +385,17 @@ struct Index {
         }
 
         Row() {
-          Select(this.cpuOptions)
-            .value("Core affinity")
-            .width('40%')
-            .enabled(this.globalStatus == Status.Idle)
-            .onSelect((index: number, text?: string | undefined) => {
-              if (index >= this.cpuCount)
-                this.currentCpuSelection = -1;
-              this.currentCpuSelection = index;
-            })
+          if (this.globalStatus == Status.Idle) {
+            Select(this.cpuOptions)
+              .value("Core affinity")
+              .width('40%')
+              .enabled(this.globalStatus == Status.Idle)
+              .onSelect((index: number, text?: string | undefined) => {
+                if (index >= this.cpuCount)
+                  this.currentCpuSelection = -1;
+                this.currentCpuSelection = index;
+              })
+          }
 
           if (this.globalStatus != Status.Completed) {
             Button("Run")

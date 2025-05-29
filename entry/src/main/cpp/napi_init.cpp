@@ -105,6 +105,7 @@ std::unordered_map<size_t, std::string> test_names{
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
     
+    {9996, "9995.ffmpeg"},
     {9996, "9996.p7zip"},
     {9997, "9997.llama-server"},
 };
@@ -189,6 +190,8 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
     
     // Other
+    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=60", "-c:v", "libx264", "-crf", "15", "-preset", "veryslow", "-pix_fmt", "yuv420p", "-t", "30", "test.mp4"}}},
+//    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-codecs"}}},
     {9996, std::vector<std::vector<const char*>>{{"lib7za.so", "b", "-m=*"}}},
     {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000"}}},
     {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
@@ -320,15 +323,15 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     if (t.joinable())
         t.join();
     t = std::thread([test_list, cpuidx] {
-        std::string cpuCountStr = std::to_string(getCpuCount());
-        if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
-            push_state(TEST_GLOBAL, status_t::Error, "Set OMP_NUM_THREADS failed");
-            do_log_update();
-            return -1;
-        } else {
-            push_state(TEST_GLOBAL, status_t::Message, "Set OMP_NUM_THREADS = " + cpuCountStr);
-            do_log_update();
-        }
+//        std::string cpuCountStr = std::to_string(getCpuCount());
+//        if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
+//            push_state(TEST_GLOBAL, status_t::Error, "Set OMP_NUM_THREADS failed");
+//            do_log_update();
+//            return -1;
+//        } else {
+//            push_state(TEST_GLOBAL, status_t::Message, "Set OMP_NUM_THREADS = " + cpuCountStr);
+//            do_log_update();
+//        }
 
         push_state(TEST_GLOBAL, status_t::Initializing, "");
         do_log_update();
@@ -410,6 +413,14 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 specfinalize_t f_finalize = (specfinalize_t)dlsym(plib, "__freelist");
                 const char** argv = cmds[i].data();
                 
+                std::string c;
+                for (auto cmd: cmds[i]) {
+                    c += cmd;
+                    c += ' ';
+                }
+                push_state(TEST_GLOBAL, status_t::Message, "Running command: \n" + c);
+                do_log_update();
+                
                 // Init reference-counter
                 if (f_init)
                     f_init();
@@ -427,34 +438,47 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     f_finalize();
                 dlclose(plib); // detach lib to release memory leak in some tests (502?)
 
+//                char *envTZ = getenv("TZ");
+//                
+//                if (envTZ) {
+//                    push_state(TEST_GLOBAL, status_t::Message, std::string("TZ = ") + envTZ);
+//                    do_log_update();
+//                } else {
+//                    push_state(TEST_GLOBAL, status_t::Message, "TZ = null");
+//                    do_log_update();
+//                }
+                
                 // Print stdout and stderr
+                if (test_no > 700) // should be "other" tests
                 {
-//                    FILE *fstdout = fopen(STDOUT_FILENAME, "r");
-                    if (fstdout) {
-                        fflush(fstdout);
-                        fseek(fstdout, 0, SEEK_END);
-                        auto outsize = ftell(fstdout);
-                        fseek(fstdout, 0, SEEK_SET);
-                        std::string str_stdout(outsize + 1, '\0');
-                        fread(str_stdout.data(), 1, outsize, fstdout);
-                        push_state(TEST_GLOBAL, status_t::Message, "stdout: \n" + str_stdout);
-                        do_log_update();
-                        fclose(fstdout);
+                    {
+    //                    FILE *fstdout = fopen(STDOUT_FILENAME, "r");
+                        if (fstdout) {
+                            fflush(fstdout);
+                            fseek(fstdout, 0, SEEK_END);
+                            auto outsize = ftell(fstdout);
+                            fseek(fstdout, 0, SEEK_SET);
+                            std::string str_stdout(outsize + 1, '\0');
+                            fread(str_stdout.data(), 1, outsize, fstdout);
+                            push_state(TEST_GLOBAL, status_t::Message, "stdout: \n" + str_stdout);
+                            do_log_update();
+                            fclose(fstdout);
+                        }
                     }
-                }
-
-                {
-//                    FILE *fstderr = fopen(STDERR_FILENAME, "r");
-                    if (fstderr) {
-                        fflush(fstdout);
-                        fseek(fstderr, 0, SEEK_END);
-                        auto errsize = ftell(fstderr);
-                        fseek(fstderr, 0, SEEK_SET);
-                        std::string str_stderr(errsize + 1, '\0');
-                        fread(str_stderr.data(), 1, errsize, fstderr);
-                        push_state(TEST_GLOBAL, status_t::Message, "stderr: \n" + str_stderr);
-                        do_log_update();
-                        fclose(fstderr);
+    
+                    {
+    //                    FILE *fstderr = fopen(STDERR_FILENAME, "r");
+                        if (fstderr) {
+                            fflush(fstdout);
+                            fseek(fstderr, 0, SEEK_END);
+                            auto errsize = ftell(fstderr);
+                            fseek(fstderr, 0, SEEK_SET);
+                            std::string str_stderr(errsize + 1, '\0');
+                            fread(str_stderr.data(), 1, errsize, fstderr);
+                            push_state(TEST_GLOBAL, status_t::Message, "stderr: \n" + str_stderr);
+                            do_log_update();
+                            fclose(fstderr);
+                        }
                     }
                 }
                 
@@ -470,6 +494,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             
             push_state(test_no, status_t::Completed, "", time);
             do_log_update();
+            
+            std::this_thread::sleep_for(std::chrono::seconds(30));
         }
 
         push_state(TEST_GLOBAL, status_t::Completed, "");
