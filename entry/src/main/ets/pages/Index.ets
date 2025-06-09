@@ -194,15 +194,16 @@ struct Index {
     new TestItem('644.nab_s',       TestType.FPspeed, false, Status.Skipped, 17472,  -1, -1, ""),
 
     // Other
+    new TestItem('9994.stream',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9995.ffmpeg',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9996.p7zip',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
-    new TestItem('9997.llama-server',TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9997.llama-bench',TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9998.c2clat',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9999.vkpeak',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
   ];
 
 
-  onStateChange = async (newStatus: Status, test: number, time: number, msg: string) => {
+  onStateChange = async (newStatus: Status, test: number, time: number, msg: string, timestamp: number) => {
     const TEST_GLOBAL = -1
     // this.message = message
 
@@ -211,19 +212,19 @@ struct Index {
         this.globalStatus = newStatus
       switch (newStatus) {
         case Status.Initializing:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += "Initializing..."
           return
         case Status.Message:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += msg
           return
         case Status.Error:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += "Failed with error: " + msg
           return
         case Status.Completed:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += "All tests completed."
           return
       }
@@ -239,29 +240,29 @@ struct Index {
 
     switch (newStatus) {
       case Status.Initializing:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Setting up " + this.testList[idx].name + "..."
         break
       case Status.Running:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Running " + this.testList[idx].name + "..."
         break
       case Status.Completed:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += this.testList[idx].name + " completed, elapsed " + time.toFixed(2) + "s."
           this.testList[idx].time = time
           this.testList[idx].score = this.testList[idx].reftime / time
         break
       case Status.Error:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += this.testList[idx].name + " failed with: " + msg
         break
       case Status.Idle:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Idle"
         break
       default:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Unknown"
         break
     }
@@ -442,11 +443,16 @@ struct Index {
           this.cpuOptions.push({ value: i.toString() })
         }
 
-        let res = await resourceFile('spec_payload.zip')
+        this.globalStatus = Status.Running
+
+      hilog.info(0x0000, 'testTag', 'extracting payload...')
+      let res = await resourceFile('spec_payload.zip')
         this.path = res
-        hilog.info(0x0000, 'testTag', 'path: %{public}s', this.path)
+        hilog.info(0x0000, 'testTag', 'payload path: %{public}s', this.path)
 
         await decompressBundle('spec_payload.zip')
+        await (async () => {this.globalStatus = Status.Idle})();
+
 
         // Keep screen always on
         let windowClass = await window.getLastWindow(this.context)

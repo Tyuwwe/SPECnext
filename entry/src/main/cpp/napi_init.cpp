@@ -59,6 +59,7 @@ struct state_t {
     size_t test_no = TEST_GLOBAL;
     status_t status = status_t::Skipped;
     double time = 0.;
+    uint64_t timestamp = 0;
     std::string message = "";
 };
 
@@ -105,9 +106,10 @@ std::unordered_map<size_t, std::string> test_names{
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
     
-    {9996, "9995.ffmpeg"},
+    {9994, "9994.stream"},
+    {9995, "9995.ffmpeg"},
     {9996, "9996.p7zip"},
-    {9997, "9997.llama-server"},
+    {9997, "9997.llama-bench"},
 };
 
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
@@ -190,10 +192,12 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
     
     // Other
+    {9994, std::vector<std::vector<const char*>>{{"libstream.so"}}},
     {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=60", "-c:v", "libx264", "-crf", "15", "-preset", "veryslow", "-pix_fmt", "yuv420p", "-t", "30", "test.mp4"}}},
 //    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-codecs"}}},
     {9996, std::vector<std::vector<const char*>>{{"lib7za.so", "b", "-m=*"}}},
-    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000"}}},
+//    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000"}}},
+    {9997, std::vector<std::vector<const char*>>{{"libllama-bench.so", "-m", "deepseek-r1-distill-llama-3b-q4_k_m.gguf", "-t", "20"}}},
     {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
     {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
 };
@@ -204,7 +208,6 @@ static napi_value Add(napi_env env, napi_callback_info info)
     napi_create_double(env, (double)0, &nret);
 
     return nret;
-
 }
 
 int getCpuCount() {
@@ -258,6 +261,7 @@ void push_state(int test_no, status_t status, std::string message, double time =
     state.test_no = test_no;
     state.status = status;
     state.message = message;
+    state.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
     state.time = time;
 }
 
@@ -274,16 +278,18 @@ void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
         auto name = test_names[state.test_no];
         auto status = state.status;
         auto time = state.time;
-        auto errormsg = state.message;
+        auto msg = state.message;
+        auto timestamp = state.timestamp;
     
-        int argc = 4;
-        napi_value args[4] = {nullptr};
+        int argc = 5;
+        napi_value args[5] = {nullptr};
     
         napi_create_int32(env, (int)status, &args[0]);
         napi_create_int32(env, testNo, &args[1]);
         napi_create_double(env, time, &args[2]);
-    
-        napi_create_string_utf8(env, errormsg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
+        napi_create_string_utf8(env, msg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
+        napi_create_int64(env, timestamp, &args[4]);
+        
         napi_value result = nullptr;
         napi_call_function(env, nullptr, /*func=*/js_fun, argc, args, &result);
     }
@@ -335,7 +341,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 
         push_state(TEST_GLOBAL, status_t::Initializing, "");
         do_log_update();
-        int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
+        int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_DEADLINE_REQUEST);
 
         if (rc != 0) {
             push_state(TEST_GLOBAL, status_t::Error, "Set thread QoS failed");
@@ -364,8 +370,12 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 continue;
             }
                 
-            if (chdir((std::string(SANDBOX_PATH) + '/' + test_names[test_no]).c_str()) != 0) {
-                push_state(test_no, status_t::Error, "chdir failed");
+            std::string path = std::string(SANDBOX_PATH) + '/' + test_names[test_no];
+            int ret_chdir = chdir(path.c_str());
+            push_state(test_no, status_t::Error, "chdir to: " + path);
+            do_log_update();
+            if (ret_chdir != 0) {
+                push_state(test_no, status_t::Error, "chdir failed: " + std::to_string(errno));
                 do_log_update();
                 continue;
             }
@@ -427,7 +437,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 
                 auto begin = std::chrono::steady_clock::now();
                 ret = f_main(cmds[i].size(), argv);
-//                printf("test test test\n");
                 auto end = std::chrono::steady_clock::now();
                 
                 double laptime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1e6;
@@ -437,22 +446,11 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 if (f_finalize)
                     f_finalize();
                 dlclose(plib); // detach lib to release memory leak in some tests (502?)
-
-//                char *envTZ = getenv("TZ");
-//                
-//                if (envTZ) {
-//                    push_state(TEST_GLOBAL, status_t::Message, std::string("TZ = ") + envTZ);
-//                    do_log_update();
-//                } else {
-//                    push_state(TEST_GLOBAL, status_t::Message, "TZ = null");
-//                    do_log_update();
-//                }
                 
                 // Print stdout and stderr
                 if (test_no > 700) // should be "other" tests
                 {
                     {
-    //                    FILE *fstdout = fopen(STDOUT_FILENAME, "r");
                         if (fstdout) {
                             fflush(fstdout);
                             fseek(fstdout, 0, SEEK_END);
@@ -467,7 +465,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     }
     
                     {
-    //                    FILE *fstderr = fopen(STDERR_FILENAME, "r");
                         if (fstderr) {
                             fflush(fstdout);
                             fseek(fstderr, 0, SEEK_END);
