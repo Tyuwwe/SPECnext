@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\geekerwan\\.ohos\\config\\default_NativeHarmony_XC9oAbC1-FmAA6ZhZ0K6QVV89uCDoFxqxMGhKhhvr9A=.cer",
+          "certpath": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BAA43EB58895EE1AEA9E2E92430100ABA2984F234F7D136A5FB85D3FCB58FA8226AA4F2A9342DEC",
-          "profile": "C:\\Users\\geekerwan\\.ohos\\config\\default_NativeHarmony_XC9oAbC1-FmAA6ZhZ0K6QVV89uCDoFxqxMGhKhhvr9A=.p7b",
+          "keyPassword": "0000001A9DF6FF25EAECDC4BDA96748238D26B814528454001BDA3F2238E3834F17896488F3BFF67891A",
+          "profile": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\geekerwan\\.ohos\\config\\default_NativeHarmony_XC9oAbC1-FmAA6ZhZ0K6QVV89uCDoFxqxMGhKhhvr9A=.p12",
-          "storePassword": "0000001BFC724F34C04AE85A0FD8D9CBACE6CA8C3D9F940D7656EE8C78B21528AB3C0AC20AD793F5D3D3F1"
+          "storeFile": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.p12",
+          "storePassword": "0000001A1BD849EF244ED33695A5BA8C653994625823B02A7BED6D6240BFD98F2224E64CE210CD614330"
         }
       }
     ],

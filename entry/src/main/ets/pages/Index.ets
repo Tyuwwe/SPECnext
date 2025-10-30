@@ -4,7 +4,9 @@ import fs from '@ohos.file.fs';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
 import { zlib, BusinessError } from '@kit.BasicServicesKit';
+import deviceInfo from '@ohos.deviceInfo';
 import { fileUri } from '@kit.CoreFileKit';
+import { SymbolGlyphModifier } from '@kit.ArkUI';
 
 async function resourceFile(resourcePath: string) {
   let uint8Array: Uint8Array = getContext()
@@ -219,14 +221,34 @@ class TestItem {
 @Component
 struct Index {
   @State message: string = 'Idle';
-  @State sz: number = 30;
+  @State sz: number = 24;
   cpuCount: number = 0;
   @State cpuOptions: Array<SelectOption> = [];
   @State currentCpuSelection: number = -1;
   @State ncopies: number = 1;
   path: string = "";
+  selectTextSize: number = 12
   @State refreshCount: number = 0;
   @State globalStatus: Status = Status.Idle;
+  @State barStyle: BarStyle = BarStyle.STANDARD;
+
+  toolBar : ToolbarItem[] = [
+    {
+      value: 'Benchmark',
+      icon: $r('app.media.ic_gallery_create'),
+      action: () => {}
+    },
+    {
+      value: 'History',
+      icon: $r('app.media.ic_public_history'),
+      action: () => {}
+    },
+    {
+      value: 'Device',
+      icon: $r('app.media.ic_gallery_search_things'),
+      action: () => {}
+    }
+  ]
 
   private context: common.BaseContext = getContext(this) as common.BaseContext
 
@@ -349,196 +371,230 @@ struct Index {
   }
 
   build() {
-    Row() {
-      Column() {
-        // Header Checkbox
+    Navigation() {
+      Stack() {
         Row() {
           Column() {
-            CheckboxGroup({ group: testTypeToString(TestType.INTrate) })
-              .enabled(this.globalStatus == Status.Idle)
-            Text(testTypeToString(TestType.INTrate))
-          }.padding({ left: '2%', right: '2%' })
-          Column() {
-            CheckboxGroup({ group: testTypeToString(TestType.FPrate) })
-              .enabled(this.globalStatus == Status.Idle)
-            Text(testTypeToString(TestType.FPrate))
-          }.padding({ left: '2%', right: '2%' })
-          Column() {
-            CheckboxGroup({ group: testTypeToString(TestType.INTspeed) })
-              .enabled(this.globalStatus == Status.Idle)
-            Text(testTypeToString(TestType.INTspeed))
-          }.padding({ left: '2%', right: '2%' })
-          Column() {
-            CheckboxGroup({ group: testTypeToString(TestType.FPspeed) })
-              .enabled(this.globalStatus == Status.Idle)
-            Text(testTypeToString(TestType.FPspeed))
-          }.padding({ left: '2%', right: '2%' })
-          Column() {
-            CheckboxGroup({ group: testTypeToString(TestType.Other) })
-              .enabled(this.globalStatus == Status.Idle)
-            Text(testTypeToString(TestType.Other))
-          }.padding({ left: '2%', right: '2%' })
-        }
-        // Test scroll view
-        Scroll() {
-          Column() {
-            // INTrate tests
-            Text(testTypeToString(TestType.INTrate))
-              .fontSize(15)
-              .fontColor(0xCCCCCC)
-              .width('100%')
-              .padding('2%')
-              .textAlign(TextAlign.Start)
-            Divider().strokeWidth(3).color('#F1F3F5')
-            ForEach(this.testList, (item: TestItem) => {
-              if (item.type == TestType.INTrate)
-                TestRow({ globalStatus: this.globalStatus, test: item })
-            })
-
-            // FPrate tests
-            Text(testTypeToString(TestType.FPrate))
-              .fontSize(15)
-              .fontColor(0xCCCCCC)
-              .width('100%')
-              .padding('2%')
-              .textAlign(TextAlign.Start)
-            Divider().strokeWidth(3).color('#F1F3F5')
-            ForEach(this.testList, (item: TestItem) => {
-              if (item.type == TestType.FPrate)
-                TestRow({ globalStatus: this.globalStatus, test: item })
-            })
-
-            // INTspeed tests
-            Text(testTypeToString(TestType.INTspeed))
-              .fontSize(15)
-              .fontColor(0xCCCCCC)
-              .width('100%')
-              .padding('2%')
-              .textAlign(TextAlign.Start)
-            Divider().strokeWidth(3).color('#F1F3F5')
-            ForEach(this.testList, (item: TestItem) => {
-              if (item.type == TestType.INTspeed)
-                TestRow({ globalStatus: this.globalStatus, test: item })
-            })
-
-            // FPspeed tests
-            Text(testTypeToString(TestType.FPspeed))
-              .fontSize(15)
-              .fontColor(0xCCCCCC)
-              .width('100%')
-              .padding('2%')
-              .textAlign(TextAlign.Start)
-            Divider().strokeWidth(3).color('#F1F3F5')
-            ForEach(this.testList, (item: TestItem) => {
-              if (item.type == TestType.FPspeed)
-                TestRow({ globalStatus: this.globalStatus, test: item })
-            })
-
-            // Other tests
-            Text(testTypeToString(TestType.Other))
-              .fontSize(15)
-              .fontColor(0xCCCCCC)
-              .width('100%')
-              .padding('2%')
-              .textAlign(TextAlign.Start)
-            Divider().strokeWidth(3).color('#F1F3F5')
-            ForEach(this.testList, (item: TestItem) => {
-              if (item.type == TestType.Other)
-                TestRow({ globalStatus: this.globalStatus, test: item })
-            })
-          }
-        }
-        .scrollable(ScrollDirection.Vertical)
-        .height("60%")
-
-        Row() {
-          TextArea({ text: this.message })
-            .width('90%')
-            .height('20%')
-            .padding('1%')
-            .fontSize(10)
-            .margin({ top: 20 })
-
-          // Text(this.message)
-          //   .fontSize(20)
-          //   .padding('2%')
-        }
-
-        Row() {
-          Select(this.cpuOptions)
-            .value("Core affinity")
-            .width('30%')
-            .enabled(this.globalStatus == Status.Idle)
-            .onSelect((index: number, text?: string | undefined) => {
-              if (index >= this.cpuCount)
-                this.currentCpuSelection = -1;
-              this.currentCpuSelection = index;
-            })
-
-          TextInput({placeholder: "n copies"})
-            .width('30%')
-            .enabled(this.globalStatus == Status.Idle)
-            .onChange((value: string) => {
-              this.ncopies = parseInt(value)
-            })
-
-
-          if (this.globalStatus != Status.Completed) {
-            Button("Run")
-              .fontSize(this.sz)
-              .fontWeight(FontWeight.Bold)
-              .onClick(async () => {
-                this.globalStatus = Status.Running;
-
-                this.testList.forEach(item => {
-                  if (item.checked)
-                    item.status = Status.Pending
-                  else item.status = Status.Skipped
+            // Header Checkbox
+            Row() {
+              Column() {
+                CheckboxGroup({ group: testTypeToString(TestType.INTrate) })
+                  .enabled(this.globalStatus == Status.Idle)
+                Text(testTypeToString(TestType.INTrate))
+                  .fontSize(this.selectTextSize)
+              }
+              Column() {
+                CheckboxGroup({ group: testTypeToString(TestType.FPrate) })
+                  .enabled(this.globalStatus == Status.Idle)
+                Text(testTypeToString(TestType.FPrate))
+                  .fontSize(this.selectTextSize)
+              }
+              Column() {
+                CheckboxGroup({ group: testTypeToString(TestType.INTspeed) })
+                  .enabled(this.globalStatus == Status.Idle)
+                Text(testTypeToString(TestType.INTspeed))
+                  .fontSize(this.selectTextSize)
+              }
+              Column() {
+                CheckboxGroup({ group: testTypeToString(TestType.FPspeed) })
+                  .enabled(this.globalStatus == Status.Idle)
+                Text(testTypeToString(TestType.FPspeed))
+                  .fontSize(this.selectTextSize)
+              }
+              Column() {
+                CheckboxGroup({ group: testTypeToString(TestType.Other) })
+                  .enabled(this.globalStatus == Status.Idle)
+                Text(testTypeToString(TestType.Other))
+                  .fontSize(this.selectTextSize)
+              }
+            }
+            .width('100%')
+            .padding(12)
+            .justifyContent(FlexAlign.SpaceAround)
+            // Test scroll view
+            Scroll() {
+              Column() {
+                // INTrate tests
+                Text(testTypeToString(TestType.INTrate))
+                  .fontSize(15)
+                  .fontColor(0xCCCCCC)
+                  .width('100%')
+                  .padding('2%')
+                  .textAlign(TextAlign.Start)
+                Divider().strokeWidth(3).color('#F1F3F5')
+                ForEach(this.testList, (item: TestItem) => {
+                  if (item.type == TestType.INTrate)
+                    TestRow({ globalStatus: this.globalStatus, test: item })
                 })
 
-                let testsToRun = this.testList.filter(item => item.checked)
-                  // .map(item => item.id)
-                runTestList(testsToRun, this.currentCpuSelection, this.ncopies, this.onStateChange)
-                  .then(res => this.globalStatus = Status.Completed)
-                  .catch(() => this.globalStatus = Status.Completed)
-              })
-              .padding('2%')
-              .width('30%')
-              .enabled(this.globalStatus == Status.Idle)
-          } else {
-            Button("Reset")
-              .fontSize(this.sz)
-              .fontWeight(FontWeight.Bold)
-              .onClick(() => {
-                this.globalStatus = Status.Idle
-                this.message += '\nIdle'
-              })
-              .padding('2%')
-              .width('30%')
-              .enabled(this.globalStatus == Status.Completed)
+                // FPrate tests
+                Text(testTypeToString(TestType.FPrate))
+                  .fontSize(15)
+                  .fontColor(0xCCCCCC)
+                  .width('100%')
+                  .padding('2%')
+                  .textAlign(TextAlign.Start)
+                Divider().strokeWidth(3).color('#F1F3F5')
+                ForEach(this.testList, (item: TestItem) => {
+                  if (item.type == TestType.FPrate)
+                    TestRow({ globalStatus: this.globalStatus, test: item })
+                })
+
+                // INTspeed tests
+                Text(testTypeToString(TestType.INTspeed))
+                  .fontSize(15)
+                  .fontColor(0xCCCCCC)
+                  .width('100%')
+                  .padding('2%')
+                  .textAlign(TextAlign.Start)
+                Divider().strokeWidth(3).color('#F1F3F5')
+                ForEach(this.testList, (item: TestItem) => {
+                  if (item.type == TestType.INTspeed)
+                    TestRow({ globalStatus: this.globalStatus, test: item })
+                })
+
+                // FPspeed tests
+                Text(testTypeToString(TestType.FPspeed))
+                  .fontSize(15)
+                  .fontColor(0xCCCCCC)
+                  .width('100%')
+                  .padding('2%')
+                  .textAlign(TextAlign.Start)
+                Divider().strokeWidth(3).color('#F1F3F5')
+                ForEach(this.testList, (item: TestItem) => {
+                  if (item.type == TestType.FPspeed)
+                    TestRow({ globalStatus: this.globalStatus, test: item })
+                })
+
+                // Other tests
+                Text(testTypeToString(TestType.Other))
+                  .fontSize(15)
+                  .fontColor(0xCCCCCC)
+                  .width('100%')
+                  .padding('2%')
+                  .textAlign(TextAlign.Start)
+                Divider().strokeWidth(3).color('#F1F3F5')
+                ForEach(this.testList, (item: TestItem) => {
+                  if (item.type == TestType.Other)
+                    TestRow({ globalStatus: this.globalStatus, test: item })
+                })
+              }
+              .padding({ bottom: '100%' })
+            }
+            .scrollable(ScrollDirection.Vertical)
+            .edgeEffect(EdgeEffect.Spring,{alwaysEnabled:true,effectEdge:EffectEdge.END})
+            .fadingEdge(true)
           }
         }
-      }
-    }.onAppear(async () => {
-        this.cpuCount = queryCpuCount()
+        .width('100%')
+        .height('100%')
+        .onAppear(async () => {
+          this.cpuCount = queryCpuCount()
 
-        for (let i = 0; i < this.cpuCount; ++i) {
-          this.cpuOptions.push({ value: i.toString() })
-        }
+          for (let i = 0; i < this.cpuCount; ++i) {
+            this.cpuOptions.push({ value: i.toString() })
+          }
 
-        let res = await resourceFile('spec_payload.zip')
-        this.path = res
-        hilog.info(0x0000, 'testTag', 'path: %{public}s', this.path)
+          let res = await resourceFile('spec_payload.zip')
+          this.path = res
+          hilog.info(0x0000, 'testTag', 'path: %{public}s', this.path)
 
-        this.globalStatus = Status.Pending
-        decompressBundle('spec_payload.zip').then(() => {
-          this.globalStatus = Status.Idle
+          this.globalStatus = Status.Pending
+          decompressBundle('spec_payload.zip').then(() => {
+            this.globalStatus = Status.Idle
+          })
+
+          // Keep screen always on
+          let windowClass = await window.getLastWindow(this.context)
+          await windowClass.setWindowKeepScreenOn(true)
         })
 
-      // Keep screen always on
-        let windowClass = await window.getLastWindow(this.context)
-        await windowClass.setWindowKeepScreenOn(true)
-    })
+        Column({ space: 8 }) {
+          TextArea({ text: this.message })
+            .height('20%')
+            .padding('28px')
+            .fontSize(16)
+          Row() {
+            Select(this.cpuOptions)
+              .value("Core affinity")
+              .enabled(this.globalStatus == Status.Idle)
+              .onSelect((index: number, text?: string | undefined) => {
+                if (index >= this.cpuCount)
+                  this.currentCpuSelection = -1;
+                this.currentCpuSelection = index;
+              })
+              .width('49%')
+
+            TextInput({placeholder: "n Copies"})
+              .enabled(this.globalStatus == Status.Idle)
+              .onChange((value: string) => {
+                this.ncopies = parseInt(value)
+              })
+              .width('49%')
+          }
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+
+          Row() {
+            if (this.globalStatus != Status.Completed) {
+              Button("Run")
+                .fontSize(this.sz)
+                .fontWeight(FontWeight.Bold)
+                .onClick(async () => {
+                  this.globalStatus = Status.Running;
+
+                  this.testList.forEach(item => {
+                    if (item.checked)
+                      item.status = Status.Pending
+                    else item.status = Status.Skipped
+                  })
+
+                  let testsToRun = this.testList.filter(item => item.checked)
+                  // .map(item => item.id)
+                  runTestList(testsToRun, this.currentCpuSelection, this.ncopies, this.onStateChange)
+                    .then(res => this.globalStatus = Status.Completed)
+                    .catch(() => this.globalStatus = Status.Completed)
+                })
+                .width('100%')
+                .enabled(this.globalStatus == Status.Idle)
+            } else {
+              Button("Reset")
+                .fontSize(this.sz)
+                .fontWeight(FontWeight.Bold)
+                .onClick(() => {
+                  this.globalStatus = Status.Idle
+                  this.message += '\nIdle'
+                })
+                .width('100%')
+                .enabled(this.globalStatus == Status.Completed)
+            }
+          }
+        }
+        .width('100%')
+        .borderRadius({
+          topLeft: 20,
+          topRight: 20
+        })
+        .backgroundColor('rgba(255, 255, 255, 0.8)')
+        .backdropBlur(24)
+        .padding('24px')
+        // .position({x: 0, y: 200})
+      }
+      .alignContent(Alignment.Bottom)
+    }
+    .mode(NavigationMode.Stack)
+    .toolbarConfiguration(this.toolBar)
+    .titleMode(NavigationTitleMode.Free)
+    .title(
+      {
+        main: 'SPECnext',
+        sub: `SPEC 2017 / ${deviceInfo.marketName} / ${deviceInfo.osFullName}`
+      },
+      {
+        backgroundBlurStyle: BlurStyle.COMPONENT_THICK,
+        barStyle: this.barStyle,
+      }
+    )
   }
 }
 
@@ -547,6 +603,7 @@ struct Index {
 struct TestRow {
   @Prop globalStatus: Status;
   @ObjectLink test: TestItem;
+  @State rowColor: string = 'rgb(255, 255, 255)'
 
   statusText = () => {
     switch (this.test.status) {
@@ -580,35 +637,40 @@ struct TestRow {
     }
   }
 
-  statusFontWeight = () => {
+  statusRowBackground = () => {
     if (this.globalStatus == Status.Idle) {
-      return this.test.checked ? FontWeight.Bold : FontWeight.Normal;
+      return this.test.checked ? 'rgb(235, 235, 235)' : 'rgb(255, 255, 255)';
     }
-    return (this.test.status == Status.Initializing || this.test.status == Status.Running) ? FontWeight.Bold : FontWeight.Normal;
+    return (this.test.status == Status.Initializing || this.test.status == Status.Running) ? 'rgb(235, 235, 235)' : 'rgb(255, 255, 255)';
   }
 
   build() {
-    Row() {
-      Text(this.test.name)
-        .fontSize(20)
-        .fontWeight(this.statusFontWeight())
-        .fontColor(this.statusFontColor())
-        .onClick(() => this.test.checked = !this.test.checked)
-      if (this.globalStatus != Status.Idle) {
-        Text(this.statusText())
-          .fontSize(15)
-          .fontWeight(this.statusFontWeight())
+      Row() {
+        Text(this.test.name)
+          .fontSize(18)
           .fontColor(this.statusFontColor())
-          .padding('1%')
-      }
+        if (this.globalStatus != Status.Idle) {
+          Text(this.statusText())
+            .fontSize(16)
+            .fontColor(this.statusFontColor())
+            .padding('1%')
+        }
 
-      if (this.globalStatus == Status.Idle) {
-        Checkbox({ group: testTypeToString(this.test.type) })
-          .select($$this.test.checked)
+        if (this.globalStatus == Status.Idle) {
+          Checkbox({ group: testTypeToString(this.test.type) })
+            .select($$this.test.checked)
+        }
       }
+      .onClick(() => {
+        this.test.checked = !this.test.checked
+      })
+      .backgroundColor(this.statusRowBackground())
+      .animation({
+        duration: 200
+      })
+      .padding('2%')
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+
     }
-    .padding('2%')
-    .width('100%')
-    .justifyContent(FlexAlign.SpaceBetween)
-  }
 }
