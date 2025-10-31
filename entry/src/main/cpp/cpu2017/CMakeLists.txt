@@ -13,7 +13,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -fPIC")
 set(CMAKE_Fortran_COMPILER_FORCED TRUE)
 set(CMAKE_Fortran_COMPILER "D:/llvm-project/build-windows/bin/flang-new.exe")
 #set(CMAKE_LINKER "C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/llvm/bin/lld.exe")
-set(CMAKE_Fortran_FLAGS "-v -fPIC --target=aarch64-linux-ohos --sysroot=D:/hwclt/sdk/default/openharmony/native/sysroot -L D:/hwclt/sdk/default/openharmony/native/llvm/lib/aarch64-linux-ohos -L D:/llvm-aarch64-linux-ohos/lib -lFortran_main")
+set(CMAKE_Fortran_FLAGS "-v -fPIC -Ofast --target=aarch64-linux-ohos --sysroot=D:/hwclt/sdk/default/openharmony/native/sysroot -L D:/hwclt/sdk/default/openharmony/native/llvm/lib/aarch64-linux-ohos -L D:/llvm-aarch64-linux-ohos/lib -L \"${OHOS_SDK_NATIVE}/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos\"")
 enable_language(Fortran)
 
 add_compile_options(-Ofast)

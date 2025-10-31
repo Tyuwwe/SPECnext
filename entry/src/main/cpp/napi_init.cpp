@@ -415,8 +415,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             
             specmain_ft_t f_main = (specmain_ft_t)dlsym(plib, "main");
 //            specmain_ft_t f_main_ft = nullptr;
-            if (!f_main)
-                f_main = (specmain_ft_t)dlsym(plib, "_QQmain");
+//            if (!f_main)
+//                f_main = (specmain_ft_t)dlsym(plib, "_QQmain");
             if (f_main == NULL) {
                 test_states[0][test_no].status = status_t::Error;
                 test_states[0][test_no].message = std::string("cannot get main func: ") + dlerror();
@@ -450,8 +450,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 
                 plib = dlopen(libname, RTLD_NOW);
                 f_main = (specmain_ft_t)dlsym(plib, "main");
-                if (!f_main)
-                    f_main = (specmain_ft_t)dlsym(plib, "_QQmain");
+//                if (!f_main)
+//                    f_main = (specmain_ft_t)dlsym(plib, "_QQmain");
                 specinit_t f_init = (specinit_t)dlsym(plib, "__init");
                 specfinalize_t f_finalize = (specfinalize_t)dlsym(plib, "__freelist");
                 const char** argv = cmds[i].data();
