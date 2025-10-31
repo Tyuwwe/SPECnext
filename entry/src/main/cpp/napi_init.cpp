@@ -148,6 +148,13 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     },
     
     // FPrate
+    {503, std::vector<std::vector<const char*>>{
+            {"libbwaves_r.so", "bwaves_1", nullptr},
+            {"libbwaves_r.so", "bwaves_2", nullptr},
+            {"libbwaves_r.so", "bwaves_3", nullptr},
+            {"libbwaves_r.so", "bwaves_4", nullptr},
+        }
+    },
     {508, std::vector<std::vector<const char*>>{{"libnamd_r.so", "--input", "apoa1.input", "--output", "apoa1.ref.output", "--iterations", "65", nullptr}}},
     {510, std::vector<std::vector<const char*>>{{"libparest_r.so", "ref.prm", nullptr}}},
     {511, std::vector<std::vector<const char*>>{{"libpovray_r.so", "SPEC-benchmark-ref.ini", nullptr}}},

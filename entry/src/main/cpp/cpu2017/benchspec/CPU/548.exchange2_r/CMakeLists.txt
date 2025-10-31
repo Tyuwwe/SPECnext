@@ -10,11 +10,6 @@ target_compile_definitions(exchange2_r PRIVATE
     -DSPEC -DNDEBUG -DSPEC_AUTO_SUPPRESS_OPENMP -DSPEC_LP64
 )
 
-#target_link_directories(exchange2_r PRIVATE
-#    "D:/llvm-aarch64-linux-ohos/lib"
-#    "${OHOS_SDK_NATIVE}/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos"
-#)
-
 target_include_directories(exchange2_r PRIVATE
     "D:/llvm-project/flang/include"
 )
