@@ -35,6 +35,7 @@ add_subdirectory(benchspec/CPU/548.exchange2_r)
 #add_subdirectory(benchspec/CPU/557.xz_r)
 
 # FPrate
+add_subdirectory(benchspec/CPU/503.bwaves_r)
 #add_subdirectory(benchspec/CPU/508.namd_r)
 #add_subdirectory(benchspec/CPU/510.parest_r)
 #add_subdirectory(benchspec/CPU/511.povray_r)
@@ -42,6 +43,7 @@ add_subdirectory(benchspec/CPU/548.exchange2_r)
 #add_subdirectory(benchspec/CPU/526.blender_r)
 #add_subdirectory(benchspec/CPU/538.imagick_r)
 #add_subdirectory(benchspec/CPU/544.nab_r)
+add_subdirectory(benchspec/CPU/549.fotonik3d_r)
 
 # INTspeed
 #add_subdirectory(benchspec/CPU/600.perlbench_s)

@@ -162,6 +162,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {526, std::vector<std::vector<const char*>>{{"libblender_r.so", "sh3_no_char.blend", "--render-output", "sh3_no_char_", "--threads", "1", "-b", "-F", "RAWTGA", "-s", "849", "-e", "849", "-a", nullptr}}},
     {538, std::vector<std::vector<const char*>>{{"libimagick_r.so", "-limit", "disk", "0", "refrate_input.tga", "-edge", "41", "-resample", "181%", "-emboss", "31", "-colorspace", "YUV", "-mean-shift", "19x19+15%", "-resize", "30%", "refrate_output.tga", nullptr}}},
     {544, std::vector<std::vector<const char*>>{{"libnab_r.so", "1am0", "1122214447", "122", nullptr}}},
+    {549, std::vector<std::vector<const char*>>{{"libfotonik3d_r.so", nullptr}}},
     
     // INTspeed
     {600, std::vector<std::vector<const char*>>{
