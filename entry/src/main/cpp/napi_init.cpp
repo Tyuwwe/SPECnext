@@ -14,6 +14,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 #include <filesystem>
@@ -33,8 +34,14 @@
 const unsigned int LOG_PRINT_DOMAIN = 0xFF00;
 
 typedef int (* specmain_t)(int argc, const char *argv[]);
+typedef int (* specmain_ft_t)(int argc, const char **argv, const char **envp);
 typedef void (* specinit_t)();
 typedef void (* specfinalize_t)();
+
+extern "C" void switch_stack(int argc, const char **argv, const char **envp,
+                             int (*callee)(int argc, const char **argv,
+                                           const char **envp),
+                             void *sp);
 
 std::thread t;
 double time_elapsed = -1;
@@ -107,46 +114,47 @@ std::unordered_map<size_t, std::string> test_names{
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     // INTrate
     {500, std::vector<std::vector<const char*>>{
-            {"libperlbench_r.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1"},
-            {"libperlbench_r.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300"},
-            {"libperlbench_r.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0"},
+            {"libperlbench_r.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1", nullptr},
+            {"libperlbench_r.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300", nullptr},
+            {"libperlbench_r.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0", nullptr},
         }
     },
     {502, std::vector<std::vector<const char*>>{
-            {"libgcc_r.so", "gcc-pp.c", "-O3", "-finline-limit=0", "-fif-conversion", "-fif-conversion2", "-o", "gcc-pp.opts-O3_-finline-limit_0_-fif-conversion_-fif-conversion2.s"},
-            {"libgcc_r.so", "gcc-pp.c", "-O2", "-finline-limit=36000", "-fpic", "-o", "gcc-pp.opts-O2_-finline-limit_36000_-fpic.s"},    
-            {"libgcc_r.so", "gcc-smaller.c", "-O3", "-fipa-pta", "-o", "gcc-smaller.opts-O3_-fipa-pta.s"},
-            {"libgcc_r.so", "ref32.c", "-O5", "-o", "ref32.opts-O5.s"},
-            {"libgcc_r.so", "ref32.c", "-O3", "-fselective-scheduling", "-fselective-scheduling2", "-o", "ref32.opts-O3_-fselective-scheduling_-fselective-scheduling2.s"},
+            {"libgcc_r.so", "gcc-pp.c", "-O3", "-finline-limit=0", "-fif-conversion", "-fif-conversion2", "-o", "gcc-pp.opts-O3_-finline-limit_0_-fif-conversion_-fif-conversion2.s", nullptr},
+            {"libgcc_r.so", "gcc-pp.c", "-O2", "-finline-limit=36000", "-fpic", "-o", "gcc-pp.opts-O2_-finline-limit_36000_-fpic.s", nullptr},    
+            {"libgcc_r.so", "gcc-smaller.c", "-O3", "-fipa-pta", "-o", "gcc-smaller.opts-O3_-fipa-pta.s", nullptr},
+            {"libgcc_r.so", "ref32.c", "-O5", "-o", "ref32.opts-O5.s", nullptr},
+            {"libgcc_r.so", "ref32.c", "-O3", "-fselective-scheduling", "-fselective-scheduling2", "-o", "ref32.opts-O3_-fselective-scheduling_-fselective-scheduling2.s", nullptr},
         }
     },
-    {505, std::vector<std::vector<const char*>>{{"libmcf_r.so", "inp.in"}}},
+    {505, std::vector<std::vector<const char*>>{{"libmcf_r.so", "inp.in", nullptr}}},
     
-    {520, std::vector<std::vector<const char*>>{{"libomnetpp_r.so", "-c", "General", "-r", "0"}}},
-    {523, std::vector<std::vector<const char*>>{{{"libxalancbmk_r.so", "-v", "t5.xml", "xalanc.xsl"}}}},
+    {520, std::vector<std::vector<const char*>>{{"libomnetpp_r.so", "-c", "General", "-r", "0", nullptr}}},
+    {523, std::vector<std::vector<const char*>>{{{"libxalancbmk_r.so", "-v", "t5.xml", "xalanc.xsl", nullptr}}}},
     {525, std::vector<std::vector<const char*>>{
-            {"libx264_r.so", "--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720"},
-            {"libx264_r.so", "--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", "--dumpyuv", "200", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720"},
-            {"libx264_r.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720"}
+            {"libx264_r.so", "--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", nullptr},
+            {"libx264_r.so", "--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", "--dumpyuv", "200", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", nullptr},
+            {"libx264_r.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", nullptr}
         }
     },
-    {531, std::vector<std::vector<const char*>>{{{"libdeepsjeng_r.so", "ref.txt"}}}},
-    {541, std::vector<std::vector<const char*>>{{"libleela_r.so", "ref.sgf"}}},
+    {531, std::vector<std::vector<const char*>>{{{"libdeepsjeng_r.so", "ref.txt", nullptr}}}},
+    {541, std::vector<std::vector<const char*>>{{"libleela_r.so", "ref.sgf", nullptr}}},
+    {548, std::vector<std::vector<const char*>>{{"libexchange2_r.so", "6", nullptr}}},
     {557, std::vector<std::vector<const char*>>{
-            {"libxz_r.so", "cld.tar.xz", "160", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "59796407", "61004416", "6"},
-            {"libxz_r.so", "cpu2006docs.tar.xz", "250", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "23047774", "23513385", "6e"},
-            {"libxz_r.so", "input.combined.xz", "250", "a841f68f38572a49d86226b7ff5baeb31bd19dc637a922a972b2e6d1257a890f6a544ecab967c313e370478c74f760eb229d4eef8a8d2836d233d3e9dd1430bf", "40401484", "41217675", "7"},
+            {"libxz_r.so", "cld.tar.xz", "160", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "59796407", "61004416", "6", nullptr},
+            {"libxz_r.so", "cpu2006docs.tar.xz", "250", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "23047774", "23513385", "6e", nullptr},
+            {"libxz_r.so", "input.combined.xz", "250", "a841f68f38572a49d86226b7ff5baeb31bd19dc637a922a972b2e6d1257a890f6a544ecab967c313e370478c74f760eb229d4eef8a8d2836d233d3e9dd1430bf", "40401484", "41217675", "7", nullptr},
         }
     },
     
     // FPrate
-    {508, std::vector<std::vector<const char*>>{{"libnamd_r.so", "--input", "apoa1.input", "--output", "apoa1.ref.output", "--iterations", "65"}}},
-    {510, std::vector<std::vector<const char*>>{{"libparest_r.so", "ref.prm"}}},
-    {511, std::vector<std::vector<const char*>>{{"libpovray_r.so", "SPEC-benchmark-ref.ini"}}},
-    {519, std::vector<std::vector<const char*>>{{"liblbm_r.so", "3000", "reference.dat", "0", "0", "100_100_130_ldc.of"}}},
-    {526, std::vector<std::vector<const char*>>{{"libblender_r.so", "sh3_no_char.blend", "--render-output", "sh3_no_char_", "--threads", "1", "-b", "-F", "RAWTGA", "-s", "849", "-e", "849", "-a"}}},
-    {538, std::vector<std::vector<const char*>>{{"libimagick_r.so", "-limit", "disk", "0", "refrate_input.tga", "-edge", "41", "-resample", "181%", "-emboss", "31", "-colorspace", "YUV", "-mean-shift", "19x19+15%", "-resize", "30%", "refrate_output.tga"}}},
-    {544, std::vector<std::vector<const char*>>{{"libnab_r.so", "1am0", "1122214447", "122"}}},
+    {508, std::vector<std::vector<const char*>>{{"libnamd_r.so", "--input", "apoa1.input", "--output", "apoa1.ref.output", "--iterations", "65", nullptr}}},
+    {510, std::vector<std::vector<const char*>>{{"libparest_r.so", "ref.prm", nullptr}}},
+    {511, std::vector<std::vector<const char*>>{{"libpovray_r.so", "SPEC-benchmark-ref.ini", nullptr}}},
+    {519, std::vector<std::vector<const char*>>{{"liblbm_r.so", "3000", "reference.dat", "0", "0", "100_100_130_ldc.of", nullptr}}},
+    {526, std::vector<std::vector<const char*>>{{"libblender_r.so", "sh3_no_char.blend", "--render-output", "sh3_no_char_", "--threads", "1", "-b", "-F", "RAWTGA", "-s", "849", "-e", "849", "-a", nullptr}}},
+    {538, std::vector<std::vector<const char*>>{{"libimagick_r.so", "-limit", "disk", "0", "refrate_input.tga", "-edge", "41", "-resample", "181%", "-emboss", "31", "-colorspace", "YUV", "-mean-shift", "19x19+15%", "-resize", "30%", "refrate_output.tga", nullptr}}},
+    {544, std::vector<std::vector<const char*>>{{"libnab_r.so", "1am0", "1122214447", "122", nullptr}}},
     
     // INTspeed
     {600, std::vector<std::vector<const char*>>{
@@ -383,6 +391,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             }
         }
 
+        const char *envp[1] = {NULL};
         for (const auto test_no: test_list) {
             test_states[0][test_no].status = status_t::Initializing;
             do_log_update(0, test_no);
@@ -396,7 +405,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 
             auto& cmds = test_cmdline[test_no];
             const char* libname = cmds[0][0];
-            void* plib = dlopen(libname, RTLD_LAZY);
+            void* plib = dlopen(libname, RTLD_LAZY | RTLD_GLOBAL);
             if (plib == NULL) {
                 test_states[0][test_no].status = status_t::Error;
                 test_states[0][test_no].message = std::string("cannot open lib: ") + dlerror();
@@ -404,7 +413,10 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 continue;
             }
             
-            specmain_t f_main = (specmain_t)dlsym(plib, "main");
+            specmain_ft_t f_main = (specmain_ft_t)dlsym(plib, "main");
+//            specmain_ft_t f_main_ft = nullptr;
+            if (!f_main)
+                f_main = (specmain_ft_t)dlsym(plib, "_QQmain");
             if (f_main == NULL) {
                 test_states[0][test_no].status = status_t::Error;
                 test_states[0][test_no].message = std::string("cannot get main func: ") + dlerror();
@@ -425,13 +437,21 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 continue;
             }
             
+            uint8_t *stack = NULL;
+            size_t size = 0x40000000;
+            posix_memalign((void **)&stack, 0x1000, size);
+            uint8_t *stack_top = stack + size;
+            OH_LOG_INFO(LOG_APP, "Allocated stack at %{public}lx-%{public}lx", stack, stack_top);
+            
             for (int i = 0; i < cmds.size(); ++i) {
                 test_states[0][test_no].status = status_t::Running;
                 test_states[0][test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
                 do_log_update(0, test_no);
                 
                 plib = dlopen(libname, RTLD_NOW);
-                f_main = (specmain_t)dlsym(plib, "main");
+                f_main = (specmain_ft_t)dlsym(plib, "main");
+                if (!f_main)
+                    f_main = (specmain_ft_t)dlsym(plib, "_QQmain");
                 specinit_t f_init = (specinit_t)dlsym(plib, "__init");
                 specfinalize_t f_finalize = (specfinalize_t)dlsym(plib, "__freelist");
                 const char** argv = cmds[i].data();
@@ -441,7 +461,25 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     f_init();
                 
                 auto begin = std::chrono::steady_clock::now();
-                ret = f_main(cmds[i].size(), argv);
+//                ret = f_main(cmds[i].size() - 1, argv, envp);
+                pid_t pid = fork();
+                if (pid == 0) {
+                    // equivalent to:
+                    // int status = main(1 + args_length, real_argv.data(), envp);
+                    // exit(status);
+                    // run main & exit on the new stack
+                    switch_stack(cmds[i].size() - 1, argv, envp, f_main, stack_top);
+                } else {
+                    // in parent process
+                    assert(pid != -1);
+                    int wstatus;
+                    waitpid(pid, &wstatus, 0);
+                    if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != 0) {
+                      // failed
+                      ret = -1;
+                    }
+                }
+                
                 auto end = std::chrono::steady_clock::now();
                 
                 double laptime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1e6;
