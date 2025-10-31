@@ -5,6 +5,7 @@ import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
 import { zlib, BusinessError } from '@kit.BasicServicesKit';
 import deviceInfo from '@ohos.deviceInfo';
+import { settings } from './settings'
 import { fileUri } from '@kit.CoreFileKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 
@@ -221,7 +222,7 @@ class TestItem {
 @Component
 struct Index {
   @State message: string = 'Idle';
-  @State sz: number = 24;
+  @State sz: number = 20;
   cpuCount: number = 0;
   @State cpuOptions: Array<SelectOption> = [];
   @State currentCpuSelection: number = -1;
@@ -231,24 +232,36 @@ struct Index {
   @State refreshCount: number = 0;
   @State globalStatus: Status = Status.Idle;
   @State barStyle: BarStyle = BarStyle.STANDARD;
+  @State activePage: number = 1
+  @State bShowLoading: boolean = false
 
-  toolBar : ToolbarItem[] = [
+  pageInfo: NavPathStack = new NavPathStack()
+  @State menuItems:Array<NavigationMenuItem> = [
     {
-      value: 'Benchmark',
-      icon: $r('app.media.ic_gallery_create'),
-      action: () => {}
+      value:'history',
+      symbolIcon: new SymbolGlyphModifier($r('sys.symbol.arrow_counterclockwise_clock')),
+      action: () => {
+        this.pageInfo.pushPathByName('History', null)
+      }
     },
     {
-      value: 'History',
-      icon: $r('app.media.ic_public_history'),
-      action: () => {}
+      value:'setting',
+      symbolIcon: new SymbolGlyphModifier($r('sys.symbol.gearshape')),
+      action: () => {
+        this.pageInfo.pushPathByName('Settings', null)
+      }
     },
-    {
-      value: 'Device',
-      icon: $r('app.media.ic_gallery_search_things'),
-      action: () => {}
-    }
   ]
+
+  @Builder
+  modalLoading() {
+    Column() {
+      Text('Benchmark Running')
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+  }
 
   private context: common.BaseContext = getContext(this) as common.BaseContext
 
@@ -371,42 +384,46 @@ struct Index {
   }
 
   build() {
-    Navigation() {
+    Navigation(this.pageInfo) {
       Stack() {
         Row() {
           Column() {
             // Header Checkbox
             Row() {
-              Column() {
-                CheckboxGroup({ group: testTypeToString(TestType.INTrate) })
-                  .enabled(this.globalStatus == Status.Idle)
-                Text(testTypeToString(TestType.INTrate))
-                  .fontSize(this.selectTextSize)
+              Select() {
+
               }
-              Column() {
-                CheckboxGroup({ group: testTypeToString(TestType.FPrate) })
-                  .enabled(this.globalStatus == Status.Idle)
-                Text(testTypeToString(TestType.FPrate))
-                  .fontSize(this.selectTextSize)
-              }
-              Column() {
-                CheckboxGroup({ group: testTypeToString(TestType.INTspeed) })
-                  .enabled(this.globalStatus == Status.Idle)
-                Text(testTypeToString(TestType.INTspeed))
-                  .fontSize(this.selectTextSize)
-              }
-              Column() {
-                CheckboxGroup({ group: testTypeToString(TestType.FPspeed) })
-                  .enabled(this.globalStatus == Status.Idle)
-                Text(testTypeToString(TestType.FPspeed))
-                  .fontSize(this.selectTextSize)
-              }
-              Column() {
-                CheckboxGroup({ group: testTypeToString(TestType.Other) })
-                  .enabled(this.globalStatus == Status.Idle)
-                Text(testTypeToString(TestType.Other))
-                  .fontSize(this.selectTextSize)
-              }
+              .width('100%')
+              // Column() {
+              //   CheckboxGroup({ group: testTypeToString(TestType.INTrate) })
+              //     .enabled(this.globalStatus == Status.Idle)
+              //   Text(testTypeToString(TestType.INTrate))
+              //     .fontSize(this.selectTextSize)
+              // }
+              // Column() {
+              //   CheckboxGroup({ group: testTypeToString(TestType.FPrate) })
+              //     .enabled(this.globalStatus == Status.Idle)
+              //   Text(testTypeToString(TestType.FPrate))
+              //     .fontSize(this.selectTextSize)
+              // }
+              // Column() {
+              //   CheckboxGroup({ group: testTypeToString(TestType.INTspeed) })
+              //     .enabled(this.globalStatus == Status.Idle)
+              //   Text(testTypeToString(TestType.INTspeed))
+              //     .fontSize(this.selectTextSize)
+              // }
+              // Column() {
+              //   CheckboxGroup({ group: testTypeToString(TestType.FPspeed) })
+              //     .enabled(this.globalStatus == Status.Idle)
+              //   Text(testTypeToString(TestType.FPspeed))
+              //     .fontSize(this.selectTextSize)
+              // }
+              // Column() {
+              //   CheckboxGroup({ group: testTypeToString(TestType.Other) })
+              //     .enabled(this.globalStatus == Status.Idle)
+              //   Text(testTypeToString(TestType.Other))
+              //     .fontSize(this.selectTextSize)
+              // }
             }
             .width('100%')
             .padding(12)
@@ -482,8 +499,10 @@ struct Index {
               .padding({ bottom: '100%' })
             }
             .scrollable(ScrollDirection.Vertical)
+            .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring,{alwaysEnabled:true,effectEdge:EffectEdge.END})
             .fadingEdge(true)
+            .padding({ bottom: 100 })
           }
         }
         .width('100%')
@@ -523,14 +542,7 @@ struct Index {
                   this.currentCpuSelection = -1;
                 this.currentCpuSelection = index;
               })
-              .width('49%')
-
-            TextInput({placeholder: "n Copies"})
-              .enabled(this.globalStatus == Status.Idle)
-              .onChange((value: string) => {
-                this.ncopies = parseInt(value)
-              })
-              .width('49%')
+              .width('100%')
           }
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
@@ -542,6 +554,7 @@ struct Index {
                 .fontWeight(FontWeight.Bold)
                 .onClick(async () => {
                   this.globalStatus = Status.Running;
+                  this.bShowLoading = true
 
                   this.testList.forEach(item => {
                     if (item.checked)
@@ -552,8 +565,13 @@ struct Index {
                   let testsToRun = this.testList.filter(item => item.checked)
                   // .map(item => item.id)
                   runTestList(testsToRun, this.currentCpuSelection, this.ncopies, this.onStateChange)
-                    .then(res => this.globalStatus = Status.Completed)
-                    .catch(() => this.globalStatus = Status.Completed)
+                    .then((res) => {
+                      this.globalStatus = Status.Completed
+                    })
+                    .catch(() => {
+                      this.bShowLoading = false
+                      this.globalStatus = Status.Completed
+                    })
                 })
                 .width('100%')
                 .enabled(this.globalStatus == Status.Idle)
@@ -564,6 +582,7 @@ struct Index {
                 .onClick(() => {
                   this.globalStatus = Status.Idle
                   this.message += '\nIdle'
+                  this.bShowLoading = false
                 })
                 .width('100%')
                 .enabled(this.globalStatus == Status.Completed)
@@ -571,24 +590,28 @@ struct Index {
           }
         }
         .width('100%')
+        .bindContentCover(this.bShowLoading, this.modalLoading(), {
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          modalTransition: ModalTransition.NONE
+        })
         .borderRadius({
           topLeft: 20,
           topRight: 20
         })
-        .backgroundColor('rgba(255, 255, 255, 0.8)')
-        .backdropBlur(24)
+        .backgroundColor('rgb(255, 255, 255)')
+        // .backdropBlur(24)
         .padding('24px')
-        // .position({x: 0, y: 200})
       }
       .alignContent(Alignment.Bottom)
     }
+    .menus(this.menuItems)
+    .hideToolBar(true)
     .mode(NavigationMode.Stack)
-    .toolbarConfiguration(this.toolBar)
     .titleMode(NavigationTitleMode.Free)
     .title(
       {
         main: 'SPECnext',
-        sub: `SPEC 2017 / ${deviceInfo.marketName} / ${deviceInfo.osFullName}`
+        sub: `${deviceInfo.marketName} / Harmony OS ${deviceInfo.majorVersion}`
       },
       {
         backgroundBlurStyle: BlurStyle.COMPONENT_THICK,
@@ -666,7 +689,7 @@ struct TestRow {
       })
       .backgroundColor(this.statusRowBackground())
       .animation({
-        duration: 200
+        duration: 100
       })
       .padding('2%')
       .width('100%')

@@ -7,11 +7,11 @@
         "material": {
           "certpath": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001A9DF6FF25EAECDC4BDA96748238D26B814528454001BDA3F2238E3834F17896488F3BFF67891A",
+          "keyPassword": "0000001B2EEDED943A449B68E7E4A6F1F6BA780392CD7FCB0DBC9630C8CA7BA4497881E98665EA27C72DD0",
           "profile": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.p12",
-          "storePassword": "0000001A1BD849EF244ED33695A5BA8C653994625823B02A7BED6D6240BFD98F2224E64CE210CD614330"
+          "storePassword": "0000001BE69047A7586EF825B1888E05FA426D818CB51EE362CB5290E6EC8A5D1EABEF6C641858E9E60BBD"
         }
       }
     ],
