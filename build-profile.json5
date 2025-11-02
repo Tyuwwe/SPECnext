@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.cer",
+          "certpath": "C:\\Users\\Tyuwwe\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B2EEDED943A449B68E7E4A6F1F6BA780392CD7FCB0DBC9630C8CA7BA4497881E98665EA27C72DD0",
-          "profile": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.p7b",
+          "keyPassword": "0000001A7256D2C9AE51A2AEA4572689ECA95D7FBFED38B06491099CBA7F5B8C98A5A2D98E29D9C4ABF6",
+          "profile": "C:\\Users\\Tyuwwe\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/tyuwwe/.ohos/config/default_SPECnext_n4SxFgefSJPud0o6S201PDiKoOYyOh8PM-VUF9IcATA=.p12",
-          "storePassword": "0000001BE69047A7586EF825B1888E05FA426D818CB51EE362CB5290E6EC8A5D1EABEF6C641858E9E60BBD"
+          "storeFile": "C:\\Users\\Tyuwwe\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p12",
+          "storePassword": "0000001A0415FFB9D0B0AD67836EF841AF64E332A738A0299EBAB4B5572011E13F2BEB453F975733E7F3"
         }
       }
     ],
@@ -19,7 +19,8 @@
       {
         "name": "default",
         "signingConfig": "default",
-        "compatibleSdkVersion": "5.0.0(12)",
+        "compatibleSdkVersion": "5.1.0(18)",
+        "targetSdkVersion": "5.1.0(18)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
           "strictMode": {

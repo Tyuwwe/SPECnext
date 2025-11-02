@@ -5,8 +5,6 @@ import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
 import { zlib, BusinessError } from '@kit.BasicServicesKit';
 import deviceInfo from '@ohos.deviceInfo';
-import { settings } from './settings'
-import { fileUri } from '@kit.CoreFileKit';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 
 async function resourceFile(resourcePath: string) {
@@ -144,13 +142,13 @@ enum TestType {
 function testTypeToString(type: TestType) {
   switch (type) {
     case TestType.INTrate:
-      return "INTrate"
+      return "INT(Rate)"
     case TestType.FPrate:
-      return "FPrate"
+      return "FP(Rate)"
     case TestType.INTspeed:
-      return "INTspeed"
+      return "INT(Speed)"
     case TestType.FPspeed:
-      return "FPspeed"
+      return "FP(Speed)"
     case TestType.Other:
     default:
       return "Other"
@@ -224,8 +222,8 @@ struct Index {
   @State message: string = 'Idle';
   @State sz: number = 20;
   cpuCount: number = 0;
-  @State cpuOptions: Array<SelectOption> = [];
-  @State currentCpuSelection: number = -1;
+  @State cpuOptions: MenuElement[] = [];
+  @State currentCpuSelection: number = 0;
   @State ncopies: number = 1;
   path: string = "";
   selectTextSize: number = 12
@@ -234,6 +232,9 @@ struct Index {
   @State barStyle: BarStyle = BarStyle.STANDARD;
   @State activePage: number = 1
   @State bShowLoading: boolean = false
+  @State nowSelection: string = 'All'
+
+  errorScroller: Scroller = new Scroller()
 
   pageInfo: NavPathStack = new NavPathStack()
   @State menuItems:Array<NavigationMenuItem> = [
@@ -253,10 +254,40 @@ struct Index {
     },
   ]
 
+  benchTypeOptions: SelectOption[] = [
+    {
+      value: "All"
+    },
+    {
+      value: "INT(Rate)"
+    },
+    {
+      value: "FP(Rate)"
+    },
+    {
+      value: "INT(Speed)"
+    },
+    {
+      value: "FP(Speed)"
+    },
+    {
+      value: "Other"
+    },
+  ]
+
   @Builder
   modalLoading() {
     Column() {
       Text('Benchmark Running')
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 12 })
+      Scroll(this.errorScroller) {
+        Text(this.message)
+          .fontColor('#ff5a5a5a')
+          .fontSize(12)
+      }
+      .width('90%')
+      .height('50%')
     }
     .width('100%')
     .height('100%')
@@ -389,112 +420,156 @@ struct Index {
         Row() {
           Column() {
             // Header Checkbox
-            Row() {
-              Select() {
-
+            Row({ space: 8 }) {
+              Select(this.benchTypeOptions)
+                .value(this.nowSelection)
+                .width('calc(100% - 144vp)')
+                .onSelect((index, value) => {
+                  this.nowSelection = value
+                })
+              // Remove All Selections
+              Button() {
+                Row() {
+                  SymbolGlyph($r('sys.symbol.trash'))
+                    .renderingStrategy(SymbolRenderingStrategy.MULTIPLE_COLOR)
+                    .fontColor(['#FFFFFF', '#ffd0d0d0'])
+                }
+                .alignItems(VerticalAlign.Center)
+                .justifyContent(FlexAlign.Center)
+                .width(40)
+                .height(40)
               }
-              .width('100%')
-              // Column() {
-              //   CheckboxGroup({ group: testTypeToString(TestType.INTrate) })
-              //     .enabled(this.globalStatus == Status.Idle)
-              //   Text(testTypeToString(TestType.INTrate))
-              //     .fontSize(this.selectTextSize)
-              // }
-              // Column() {
-              //   CheckboxGroup({ group: testTypeToString(TestType.FPrate) })
-              //     .enabled(this.globalStatus == Status.Idle)
-              //   Text(testTypeToString(TestType.FPrate))
-              //     .fontSize(this.selectTextSize)
-              // }
-              // Column() {
-              //   CheckboxGroup({ group: testTypeToString(TestType.INTspeed) })
-              //     .enabled(this.globalStatus == Status.Idle)
-              //   Text(testTypeToString(TestType.INTspeed))
-              //     .fontSize(this.selectTextSize)
-              // }
-              // Column() {
-              //   CheckboxGroup({ group: testTypeToString(TestType.FPspeed) })
-              //     .enabled(this.globalStatus == Status.Idle)
-              //   Text(testTypeToString(TestType.FPspeed))
-              //     .fontSize(this.selectTextSize)
-              // }
-              // Column() {
-              //   CheckboxGroup({ group: testTypeToString(TestType.Other) })
-              //     .enabled(this.globalStatus == Status.Idle)
-              //   Text(testTypeToString(TestType.Other))
-              //     .fontSize(this.selectTextSize)
-              // }
+              .role(ButtonRole.ERROR)
+              .onClick(() => {
+                for (let i of this.testList) {
+                  i.checked = false
+                }
+              })
+              // Remove Current Type Selection
+              Button() {
+                Row() {
+                  SymbolGlyph($r('sys.symbol.circle_dashed'))
+                    .renderingStrategy(SymbolRenderingStrategy.SINGLE)
+                    .fontColor([$r('sys.color.warning')])
+                }
+                .alignItems(VerticalAlign.Center)
+                .justifyContent(FlexAlign.Center)
+                .width(40)
+                .height(40)
+              }
+              .buttonStyle(ButtonStyleMode.NORMAL)
+              .onClick(() => {
+                for (let i of this.testList) {
+                  if (this.nowSelection === 'All') {
+                    i.checked = false
+                  }
+                  else if (testTypeToString(i.type) === this.nowSelection) {
+                    i.checked = false
+                  }
+                }
+              })
+              // Select All Current Type
+              Button() {
+                Row() {
+                  SymbolGlyph($r('sys.symbol.checkmark_circle'))
+                    .renderingStrategy(SymbolRenderingStrategy.MULTIPLE_COLOR)
+                    .fontColor([$r('sys.color.icon_emphasize'), $r('sys.color.icon_sub_emphasize')])
+                }
+                .alignItems(VerticalAlign.Center)
+                .justifyContent(FlexAlign.Center)
+                .width(40)
+                .height(40)
+              }
+              .buttonStyle(ButtonStyleMode.NORMAL)
+              .onClick(() => {
+                for (let i of this.testList) {
+                  if (this.nowSelection === 'All' || testTypeToString(i.type) === this.nowSelection) {
+                    i.checked = true
+                  }
+                }
+              })
             }
             .width('100%')
             .padding(12)
-            .justifyContent(FlexAlign.SpaceAround)
+            .justifyContent(FlexAlign.SpaceBetween)
             // Test scroll view
             Scroll() {
               Column() {
-                // INTrate tests
-                Text(testTypeToString(TestType.INTrate))
-                  .fontSize(15)
-                  .fontColor(0xCCCCCC)
-                  .width('100%')
-                  .padding('2%')
-                  .textAlign(TextAlign.Start)
-                Divider().strokeWidth(3).color('#F1F3F5')
-                ForEach(this.testList, (item: TestItem) => {
-                  if (item.type == TestType.INTrate)
-                    TestRow({ globalStatus: this.globalStatus, test: item })
-                })
+                if (this.nowSelection === 'All' || this.nowSelection === 'INT(Rate)') {
+                  // INTrate tests
+                  Text(testTypeToString(TestType.INTrate))
+                    .fontSize(15)
+                    .fontColor(0xCCCCCC)
+                    .width('100%')
+                    .padding('2%')
+                    .textAlign(TextAlign.Start)
+                  Divider().strokeWidth(3).color('#F1F3F5')
+                  ForEach(this.testList, (item: TestItem) => {
+                    if (item.type == TestType.INTrate)
+                      TestRow({ globalStatus: this.globalStatus, test: item })
+                  })
+                }
 
-                // FPrate tests
-                Text(testTypeToString(TestType.FPrate))
-                  .fontSize(15)
-                  .fontColor(0xCCCCCC)
-                  .width('100%')
-                  .padding('2%')
-                  .textAlign(TextAlign.Start)
-                Divider().strokeWidth(3).color('#F1F3F5')
-                ForEach(this.testList, (item: TestItem) => {
-                  if (item.type == TestType.FPrate)
-                    TestRow({ globalStatus: this.globalStatus, test: item })
-                })
+                if (this.nowSelection === 'All' || this.nowSelection === 'FP(Rate)') {
+                  // FPrate tests
+                  Text(testTypeToString(TestType.FPrate))
+                    .fontSize(15)
+                    .fontColor(0xCCCCCC)
+                    .width('100%')
+                    .padding('2%')
+                    .textAlign(TextAlign.Start)
+                  Divider().strokeWidth(3).color('#F1F3F5')
+                  ForEach(this.testList, (item: TestItem) => {
+                    if (item.type == TestType.FPrate)
+                      TestRow({ globalStatus: this.globalStatus, test: item })
+                  })
+                }
 
-                // INTspeed tests
-                Text(testTypeToString(TestType.INTspeed))
-                  .fontSize(15)
-                  .fontColor(0xCCCCCC)
-                  .width('100%')
-                  .padding('2%')
-                  .textAlign(TextAlign.Start)
-                Divider().strokeWidth(3).color('#F1F3F5')
-                ForEach(this.testList, (item: TestItem) => {
-                  if (item.type == TestType.INTspeed)
-                    TestRow({ globalStatus: this.globalStatus, test: item })
-                })
+                if (this.nowSelection === 'All' || this.nowSelection === 'INT(Speed)') {
+                  // INTspeed tests
+                  Text(testTypeToString(TestType.INTspeed))
+                    .fontSize(15)
+                    .fontColor(0xCCCCCC)
+                    .width('100%')
+                    .padding('2%')
+                    .textAlign(TextAlign.Start)
+                  Divider().strokeWidth(3).color('#F1F3F5')
+                  ForEach(this.testList, (item: TestItem) => {
+                    if (item.type == TestType.INTspeed)
+                      TestRow({ globalStatus: this.globalStatus, test: item })
+                  })
+                }
 
-                // FPspeed tests
-                Text(testTypeToString(TestType.FPspeed))
-                  .fontSize(15)
-                  .fontColor(0xCCCCCC)
-                  .width('100%')
-                  .padding('2%')
-                  .textAlign(TextAlign.Start)
-                Divider().strokeWidth(3).color('#F1F3F5')
-                ForEach(this.testList, (item: TestItem) => {
-                  if (item.type == TestType.FPspeed)
-                    TestRow({ globalStatus: this.globalStatus, test: item })
-                })
+                if (this.nowSelection === 'All' || this.nowSelection === 'FP(Speed)') {
+                  // FPspeed tests
+                  Text(testTypeToString(TestType.FPspeed))
+                    .fontSize(15)
+                    .fontColor(0xCCCCCC)
+                    .width('100%')
+                    .padding('2%')
+                    .textAlign(TextAlign.Start)
+                  Divider().strokeWidth(3).color('#F1F3F5')
+                  ForEach(this.testList, (item: TestItem) => {
+                    if (item.type == TestType.FPspeed)
+                      TestRow({ globalStatus: this.globalStatus, test: item })
+                  })
 
-                // Other tests
-                Text(testTypeToString(TestType.Other))
-                  .fontSize(15)
-                  .fontColor(0xCCCCCC)
-                  .width('100%')
-                  .padding('2%')
-                  .textAlign(TextAlign.Start)
-                Divider().strokeWidth(3).color('#F1F3F5')
-                ForEach(this.testList, (item: TestItem) => {
-                  if (item.type == TestType.Other)
-                    TestRow({ globalStatus: this.globalStatus, test: item })
-                })
+                }
+
+                if (this.nowSelection === 'All' || this.nowSelection === 'Other') {
+                  // Other tests
+                  Text(testTypeToString(TestType.Other))
+                    .fontSize(15)
+                    .fontColor(0xCCCCCC)
+                    .width('100%')
+                    .padding('2%')
+                    .textAlign(TextAlign.Start)
+                  Divider().strokeWidth(3).color('#F1F3F5')
+                  ForEach(this.testList, (item: TestItem) => {
+                    if (item.type == TestType.Other)
+                      TestRow({ globalStatus: this.globalStatus, test: item })
+                  })
+                }
               }
               .padding({ bottom: '100%' })
             }
@@ -511,7 +586,12 @@ struct Index {
           this.cpuCount = queryCpuCount()
 
           for (let i = 0; i < this.cpuCount; ++i) {
-            this.cpuOptions.push({ value: i.toString() })
+            this.cpuOptions.push({
+              value: `Core ${i}`,
+              action: () => {
+                this.currentCpuSelection = i
+              }
+            })
           }
 
           let res = await resourceFile('spec_payload.zip')
@@ -528,26 +608,50 @@ struct Index {
           await windowClass.setWindowKeepScreenOn(true)
         })
 
-        Column({ space: 8 }) {
-          TextArea({ text: this.message })
-            .height('20%')
-            .padding('28px')
-            .fontSize(16)
+        Column() {
+          // TextArea({ text: this.message })
+          //   .height('20%')
+          //   .padding('28px')
+          //   .fontSize(16)
           Row() {
-            Select(this.cpuOptions)
-              .value("Core affinity")
-              .enabled(this.globalStatus == Status.Idle)
-              .onSelect((index: number, text?: string | undefined) => {
-                if (index >= this.cpuCount)
-                  this.currentCpuSelection = -1;
-                this.currentCpuSelection = index;
-              })
-              .width('100%')
+            Row() {
+              Text('Core Selection: ')
+                .fontWeight(FontWeight.Bold)
+              Text(this.cpuOptions[this.currentCpuSelection]?.value)
+            }
+            Row() {
+              Text('n Copies: ')
+                .fontWeight(FontWeight.Bold)
+              Text(String(this.ncopies))
+            }
+            // Select(this.cpuOptions)
+            //   .value(this.currentCpuSelectionText)
+            //   .enabled(this.globalStatus == Status.Idle)
+            //   .onSelect((index: number, text: string) => {
+            //     if (index >= this.cpuCount)
+            //       this.currentCpuSelection = -1;
+            //     this.currentCpuSelection = index;
+            //     this.currentCpuSelectionText = text
+            //   })
+            //   .width('100%')
           }
+          .padding(12)
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
 
-          Row() {
+          Row({ space: 8 }) {
+            Button() {
+              Row() {
+                Image($r('app.media.ic_public_chip'))
+                  .width(24)
+                  .height(24)
+              }
+              .alignItems(VerticalAlign.Center)
+              .justifyContent(FlexAlign.Center)
+              .width(40)
+              .height(40)
+              .bindMenu(this.cpuOptions)
+            }
             if (this.globalStatus != Status.Completed) {
               Button("Run")
                 .fontSize(this.sz)
@@ -573,7 +677,7 @@ struct Index {
                       this.globalStatus = Status.Completed
                     })
                 })
-                .width('100%')
+                .width('calc(100% - 48vp)')
                 .enabled(this.globalStatus == Status.Idle)
             } else {
               Button("Reset")
@@ -584,11 +688,12 @@ struct Index {
                   this.message += '\nIdle'
                   this.bShowLoading = false
                 })
-                .width('100%')
+                .width('calc(100% - 48vp)')
                 .enabled(this.globalStatus == Status.Completed)
             }
           }
         }
+        .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
         .bindContentCover(this.bShowLoading, this.modalLoading(), {
           backgroundColor: 'rgba(255, 255, 255, 0.8)',
