@@ -155,6 +155,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
             {"libbwaves_r.so", "bwaves_4", nullptr},
         }
     },
+    {507, std::vector<std::vector<const char*>>{{"libcactusBSSN_r.so", "spec_ref.par", nullptr}}},
     {508, std::vector<std::vector<const char*>>{{"libnamd_r.so", "--input", "apoa1.input", "--output", "apoa1.ref.output", "--iterations", "65", nullptr}}},
     {510, std::vector<std::vector<const char*>>{{"libparest_r.so", "ref.prm", nullptr}}},
     {511, std::vector<std::vector<const char*>>{{"libpovray_r.so", "SPEC-benchmark-ref.ini", nullptr}}},
@@ -163,6 +164,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {538, std::vector<std::vector<const char*>>{{"libimagick_r.so", "-limit", "disk", "0", "refrate_input.tga", "-edge", "41", "-resample", "181%", "-emboss", "31", "-colorspace", "YUV", "-mean-shift", "19x19+15%", "-resize", "30%", "refrate_output.tga", nullptr}}},
     {544, std::vector<std::vector<const char*>>{{"libnab_r.so", "1am0", "1122214447", "122", nullptr}}},
     {549, std::vector<std::vector<const char*>>{{"libfotonik3d_r.so", nullptr}}},
+    {554, std::vector<std::vector<const char*>>{{"libroms_r.so", nullptr}}},
     
     // INTspeed
     {600, std::vector<std::vector<const char*>>{
@@ -398,8 +400,13 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 return -1;
             }
         }
-
-        const char *envp[1] = {NULL};
+//        const char *envp[1] = {NULL};
+        
+        uint8_t *stack = NULL;
+        size_t size = 0x40000000;
+        posix_memalign((void **)&stack, 0x1000, size);
+        uint8_t *stack_top = stack + size;
+        OH_LOG_INFO(LOG_APP, "Allocated stack at %{public}lx-%{public}lx", stack, stack_top);
         for (const auto test_no: test_list) {
             test_states[0][test_no].status = status_t::Initializing;
             do_log_update(0, test_no);
@@ -445,12 +452,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 continue;
             }
             
-            uint8_t *stack = NULL;
-            size_t size = 0x40000000;
-            posix_memalign((void **)&stack, 0x1000, size);
-            uint8_t *stack_top = stack + size;
-            OH_LOG_INFO(LOG_APP, "Allocated stack at %{public}lx-%{public}lx", stack, stack_top);
-            
             for (int i = 0; i < cmds.size(); ++i) {
                 test_states[0][test_no].status = status_t::Running;
                 test_states[0][test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
@@ -476,7 +477,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     // int status = main(1 + args_length, real_argv.data(), envp);
                     // exit(status);
                     // run main & exit on the new stack
-                    switch_stack(cmds[i].size() - 1, argv, envp, f_main, stack_top);
+                    switch_stack(cmds[i].size() - 1, argv, (const char**)environ, f_main, stack_top);
                 } else {
                     // in parent process
                     assert(pid != -1);
@@ -516,6 +517,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 
         test_states[0][TEST_GLOBAL].status = status_t::Completed;
         do_log_update(0, TEST_GLOBAL);
+        
+        free(stack);
         
         return 0;
     });
