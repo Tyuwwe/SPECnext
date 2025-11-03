@@ -155,7 +155,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
             {"libbwaves_r.so", "bwaves_4", nullptr},
         }
     },
-    {507, std::vector<std::vector<const char*>>{{"libcactusBSSN_r.so", "spec_ref.par", nullptr}}},
+    {507, std::vector<std::vector<const char*>>{{"libcactuBSSN_r.so", "spec_ref.par", nullptr}}},
     {508, std::vector<std::vector<const char*>>{{"libnamd_r.so", "--input", "apoa1.input", "--output", "apoa1.ref.output", "--iterations", "65", nullptr}}},
     {510, std::vector<std::vector<const char*>>{{"libparest_r.so", "ref.prm", nullptr}}},
     {511, std::vector<std::vector<const char*>>{{"libpovray_r.so", "SPEC-benchmark-ref.ini", nullptr}}},
@@ -400,7 +400,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 return -1;
             }
         }
-//        const char *envp[1] = {NULL};
+        const char *envp[1] = {NULL};
         
         uint8_t *stack = NULL;
         size_t size = 0x40000000;
@@ -477,7 +477,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     // int status = main(1 + args_length, real_argv.data(), envp);
                     // exit(status);
                     // run main & exit on the new stack
-                    switch_stack(cmds[i].size() - 1, argv, (const char**)environ, f_main, stack_top);
+                    switch_stack(cmds[i].size() - 1, argv, envp, f_main, stack_top);
                 } else {
                     // in parent process
                     assert(pid != -1);
