@@ -98,9 +98,10 @@ async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: numb
         await fs.copyDir(localSrcPath, localDstPath, 1)
       } catch (err) {
         func(Status.Message, TEST_GLOBAL, 0, `Copy #${i}: ${test.name} failed: ${err}`)
-        return new Promise<number>((res, rej) => {
-          rej(err)
-        })
+        func(Status.Error, test.id, 0, `Copy #${i} prep failed: ${err}`)
+        // return new Promise<number>((res, rej) => {
+        //   rej(err)
+        // })
       }
       func(Status.Message, TEST_GLOBAL, 0, `Setup Copy #${i}: ${test.name} completed.`)
     }
