@@ -161,6 +161,7 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {511, std::vector<std::vector<const char*>>{{"libpovray_r.so", "SPEC-benchmark-ref.ini", nullptr}}},
     {519, std::vector<std::vector<const char*>>{{"liblbm_r.so", "3000", "reference.dat", "0", "0", "100_100_130_ldc.of", nullptr}}},
     {526, std::vector<std::vector<const char*>>{{"libblender_r.so", "sh3_no_char.blend", "--render-output", "sh3_no_char_", "--threads", "1", "-b", "-F", "RAWTGA", "-s", "849", "-e", "849", "-a", nullptr}}},
+    {527, std::vector<std::vector<const char*>>{{"libcam4_r.so", nullptr}}},
     {538, std::vector<std::vector<const char*>>{{"libimagick_r.so", "-limit", "disk", "0", "refrate_input.tga", "-edge", "41", "-resample", "181%", "-emboss", "31", "-colorspace", "YUV", "-mean-shift", "19x19+15%", "-resize", "30%", "refrate_output.tga", nullptr}}},
     {544, std::vector<std::vector<const char*>>{{"libnab_r.so", "1am0", "1122214447", "122", nullptr}}},
     {549, std::vector<std::vector<const char*>>{{"libfotonik3d_r.so", nullptr}}},
