@@ -192,6 +192,7 @@ set(SRC_FILE_527
     src/aer_rad_props.F90
     src/cosp_stats.F90
     src/cosp_isccp_simulator.F90
+    src/radar_simulator.f90
     src/radar_simulator_types.f90
     src/cosp_modis_simulator.F90
     src/lmd_ipsl_stats.F90
@@ -442,6 +443,8 @@ set(SRC_FILE_527
     src/wrf_message.F90
     src/time.c
     src/zenith.F90
+    src/zeff.f90
+    src/dsd.f90
     src/msise00.F90
     src/sulchem.F90
     src/wrap_mpi.F90
