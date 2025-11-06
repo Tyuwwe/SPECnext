@@ -468,14 +468,18 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 
                 // Prepares for (possible) IO redirection
                 int argc = cmds[i].size() - 1;
+                bool has_redirection = false;
                 for (int i = 0; i < argc; ++i) {
                     if (strcmp("<", argv[i]) == 0) {
                         // i+0 - "<"
                         // i+1 - filename
                         // i+2 - nullptr
                         freopen(argv[i + 1], "r", stdin);
+                        has_redirection = true;
                     }
                 }
+                if (has_redirection)
+                    argc -= 2;
                 
                 // Init reference-counter
                 if (f_init)
@@ -486,14 +490,14 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 do_log_update(0, test_no);
                 
                 auto begin = std::chrono::steady_clock::now();
-//                ret = f_main(cmds[i].size() - 1, argv, envp);
+//                ret = f_main(argc, argv, envp);
                 pid_t pid = fork();
                 if (pid == 0) {
                     // equivalent to:
                     // int status = main(1 + args_length, real_argv.data(), envp);
                     // exit(status);
                     // run main & exit on the new stack
-                    switch_stack(cmds[i].size() - 1, argv, envp, f_main, stack_top);
+                    switch_stack(argc, argv, envp, f_main, stack_top);
                 } else {
                     // in parent process
                     assert(pid != -1);

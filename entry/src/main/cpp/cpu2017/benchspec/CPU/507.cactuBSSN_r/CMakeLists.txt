@@ -1,6 +1,7 @@
 message(STATUS "Generating build files for 507.cactuBSSN_r...")
 
 set(SRC_FILE_507
+    src/gnu/regex.c
     src/gnu/getopt.c
     src/gnu/getopt1.c
     src/ADMBase/cctk_Bindings/cctk_ThornBindings.c
@@ -298,7 +299,6 @@ set(SRC_FILE_507
     src/LocalReduce/ReductionSum.c
     src/LocalReduce/ReductionNorm3.c
     src/LocalReduce/ReductionNormInf.c
-    src/gnu/regex.c
     src/IOASCII/Write1D.c
     src/LocalReduce/ReductionNorm2.c
     src/LocalReduce/ReductionNorm4.c
@@ -448,11 +448,23 @@ add_library(cactuBSSN_r SHARED
 target_compile_definitions(cactuBSSN_r PRIVATE
     -DSPEC -DNDEBUG -DSPEC_AUTO_SUPPRESS_OPENMP -DSPEC_LP64
     "$<$<COMPILE_LANGUAGE:C,CXX>:-DCCODE>"
+    -Dregcomp=__wrap_regcomp
+    -Dregexec=__wrap_regexec
+    -Dregerror=__wrap_regerror
+    -Dregfree=__wrap_regfree
 )
 
 target_include_directories(cactuBSSN_r PRIVATE
     "D:/llvm-project/flang/include"
     "src/include"
+)
+
+target_link_options(cactuBSSN_r PRIVATE
+        "-Wl,--undefined=regcomp"
+        "-Wl,--undefined=regexec"
+        "-Wl,--undefined=regfree"
+        "-Wl,--undefined=regerror"
+        "-Wl,--as-needed"
 )
 
 target_link_directories(cactuBSSN_r PRIVATE
@@ -464,3 +476,8 @@ target_link_libraries(cactuBSSN_r PRIVATE
     FortranDecimal
     clang_rt.builtins
 )
+
+target_link_options(cactuBSSN_r PRIVATE -Wl,--wrap=regcomp
+                                         -Wl,--wrap=regerror
+                                         -Wl,--wrap=regexec
+                                         -Wl,--wrap=regfree)
