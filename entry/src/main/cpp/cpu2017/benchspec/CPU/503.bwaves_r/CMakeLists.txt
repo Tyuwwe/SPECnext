@@ -18,6 +18,9 @@ target_compile_definitions(bwaves_r PRIVATE
     -DSPEC -DNDEBUG -DSPEC_AUTO_SUPPRESS_OPENMP -DSPEC_LP64
 )
 
+target_link_directories(bwaves_r PRIVATE
+    ${FORTRAN_LIB_DIR}
+)
 
 target_include_directories(bwaves_r PRIVATE
     "D:/llvm-project/flang/include"

@@ -149,10 +149,10 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     
     // FPrate
     {503, std::vector<std::vector<const char*>>{
-            {"libbwaves_r.so", "bwaves_1", nullptr},
-            {"libbwaves_r.so", "bwaves_2", nullptr},
-            {"libbwaves_r.so", "bwaves_3", nullptr},
-            {"libbwaves_r.so", "bwaves_4", nullptr},
+            {"libbwaves_r.so", "bwaves_1", "<", "bwaves_1.in", nullptr},
+            {"libbwaves_r.so", "bwaves_2", "<", "bwaves_2.in", nullptr},
+            {"libbwaves_r.so", "bwaves_3", "<", "bwaves_3.in", nullptr},
+            {"libbwaves_r.so", "bwaves_4", "<", "bwaves_4.in", nullptr},
         }
     },
     {507, std::vector<std::vector<const char*>>{{"libcactuBSSN_r.so", "spec_ref.par", nullptr}}},
@@ -402,13 +402,16 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 return -1;
             }
         }
+        
+        // Prepare new stack
         const char *envp[1] = {NULL};
         
         uint8_t *stack = NULL;
-        size_t size = 0x40000000;
+        size_t size = 0x80000000;
         posix_memalign((void **)&stack, 0x1000, size);
         uint8_t *stack_top = stack + size;
         OH_LOG_INFO(LOG_APP, "Allocated stack at %{public}lx-%{public}lx", stack, stack_top);
+        
         for (const auto test_no: test_list) {
             test_states[0][test_no].status = status_t::Initializing;
             do_log_update(0, test_no);
@@ -455,10 +458,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             }
             
             for (int i = 0; i < cmds.size(); ++i) {
-                test_states[0][test_no].status = status_t::Running;
-                test_states[0][test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
-                do_log_update(0, test_no);
-                
                 plib = dlopen(libname, RTLD_NOW);
                 f_main = (specmain_ft_t)dlsym(plib, "main");
 //                if (!f_main)
@@ -467,9 +466,24 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 specfinalize_t f_finalize = (specfinalize_t)dlsym(plib, "__freelist");
                 const char** argv = cmds[i].data();
                 
+                // Prepares for (possible) IO redirection
+                int argc = cmds[i].size() - 1;
+                for (int i = 0; i < argc; ++i) {
+                    if (strcmp("<", argv[i]) == 0) {
+                        // i+0 - "<"
+                        // i+1 - filename
+                        // i+2 - nullptr
+                        freopen(argv[i + 1], "r", stdin);
+                    }
+                }
+                
                 // Init reference-counter
                 if (f_init)
                     f_init();
+                
+                test_states[0][test_no].status = status_t::Running;
+                test_states[0][test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
+                do_log_update(0, test_no);
                 
                 auto begin = std::chrono::steady_clock::now();
 //                ret = f_main(cmds[i].size() - 1, argv, envp);
