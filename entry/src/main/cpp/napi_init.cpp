@@ -390,18 +390,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             do_log_update(0, TEST_GLOBAL);
             return rc;
         }
-
-        if (cpuidx >= 0) {
-            cpu_set_t mask;
-            CPU_ZERO(&mask);
-            CPU_SET(cpuidx, &mask);
-            if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
-                test_states[0][TEST_GLOBAL].status = status_t::Error;
-                test_states[0][TEST_GLOBAL].message = "Set thread affinity failed";
-                do_log_update(0, TEST_GLOBAL);
-                return -1;
-            }
-        }
         
         // Prepare new stack
         const char *envp[1] = {NULL};
@@ -493,6 +481,19 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 //                ret = f_main(argc, argv, envp);
                 pid_t pid = fork();
                 if (pid == 0) {
+                    // Pin core
+                    if (cpuidx >= 0) {
+                        cpu_set_t mask;
+                        CPU_ZERO(&mask);
+                        CPU_SET(cpuidx, &mask);
+                        if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
+//                            test_states[0][TEST_GLOBAL].status = status_t::Error;
+//                            test_states[0][TEST_GLOBAL].message = "Set thread affinity failed";
+//                            do_log_update(0, TEST_GLOBAL);
+                            return -1;
+                        }
+                    }
+                    
                     // equivalent to:
                     // int status = main(1 + args_length, real_argv.data(), envp);
                     // exit(status);
