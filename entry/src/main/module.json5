@@ -10,6 +10,7 @@
       "2in1",
       "tv",
     ],
+    "routerMap": "$profile:route_map",
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
