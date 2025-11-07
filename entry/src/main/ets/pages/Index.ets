@@ -1,6 +1,6 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import testNapi, { clock, queryCpuCount } from 'libentry.so';
-import fs from '@ohos.file.fs';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
 import { zlib } from '@kit.BasicServicesKit';
@@ -27,9 +27,15 @@ async function resourceFile(resourcePath: string) {
 }
 
 async function decompressBundle(bundleRelPath: string) {
-  let uint8Array: Uint8Array = getContext()
-    .resourceManager
-    .getRawFileContentSync(bundleRelPath)
+  let uint8Array: Uint8Array
+  try {
+    uint8Array = getContext()
+      .resourceManager
+      .getRawFileContentSync(bundleRelPath)
+  }
+  catch (error) {
+    throw new Error(error)
+  }
   const fileName = bundleRelPath.substring(bundleRelPath.lastIndexOf('/') + 1)
 
   const cwd = getContext().filesDir
@@ -318,8 +324,12 @@ struct Index {
   @State globalStatus: Status = Status.Idle;
   @State barStyle: BarStyle = BarStyle.STANDARD;
   @State activePage: number = 1
+  @State bShowDecompressing: boolean = false
   @State bShowLoading: boolean = false
   @State nowSelection: string = 'All'
+
+  @State decompressLog: string = ''
+  @State decompressError: boolean = false
 
   errorScroller: Scroller = new Scroller()
 
@@ -362,6 +372,23 @@ struct Index {
       value: "Other"
     },
   ]
+
+  @Builder
+  modalDecompressing() {
+    Column({ space: 8 }) {
+      Text('Decompressing Bundle')
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 12 })
+      LoadingProgress()
+        .width('30%')
+        .color(this.decompressError ? $r('sys.color.font_secondary') : $r('sys.color.warning'))
+      Text(this.decompressLog)
+        .fontSize(12)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+  }
 
   @Builder
   modalLoading() {
@@ -684,26 +711,32 @@ struct Index {
         .onAppear(async () => {
           this.cpuCount = queryCpuCount()
 
-          for (let i = 0; i < this.cpuCount; ++i) {
-            this.cpuOptions.push({
-              value: `Core ${i}`,
-              action: () => {
-                this.currentCpuSelection = i
-              }
-            })
-          }
-
         for (let i = 0; i < this.cpuCount; ++i) {
           const freqHz = clock(i)
           const freqMHz = freqHz / 1e3 / 1e3
-          this.cpuOptions.push({ value: `${i.toString()} - ${freqMHz.toFixed(2)}MHz` })
+          this.cpuOptions.push({
+            value: `${i.toString()} - ${freqMHz.toFixed(2)}MHz`,
+            action: () => {
+              this.currentCpuSelection = i
+            }
+          })
           console.log(`core ${i} freq est. ${freqHz}Hz => ${freqMHz.toFixed(2)}MHz`)
         }
 
           this.globalStatus = Status.Pending
+
+          // this.globalStatus = Status.Idle
+
+          this.bShowDecompressing = true
+          this.decompressLog = `Start Decompress Bundle`
+
           decompressBundle('spec_payload.zip').then(() => {
+            this.bShowDecompressing = false
             this.globalStatus = Status.Idle
           })
+            .catch((e: Error) => {
+              this.decompressLog = `Decompress Error: ${e}`
+            })
 
           // Keep screen always on
           let windowClass = await window.getLastWindow(this.context)
@@ -798,7 +831,7 @@ struct Index {
         }
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
-        .bindContentCover(this.bShowLoading, this.modalLoading(), {
+        .bindContentCover($$this.bShowLoading, this.modalLoading(), {
           backgroundColor: 'rgba(255, 255, 255, 0.8)',
           modalTransition: ModalTransition.NONE
         })
@@ -810,6 +843,10 @@ struct Index {
         // .backdropBlur(24)
         .padding('24px')
       }
+      .bindContentCover($$this.bShowDecompressing, this.modalDecompressing, {
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        modalTransition: ModalTransition.NONE
+      })
       .alignContent(Alignment.Bottom)
     }
     .menus(this.menuItems)
