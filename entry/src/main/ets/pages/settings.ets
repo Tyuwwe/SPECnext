@@ -1,22 +1,23 @@
 import deviceInfo from "@ohos.deviceInfo"
-import { queryCpuCount } from 'libentry.so';
-import common from '@ohos.app.ability.common';
-import Want from '@ohos.app.ability.Want';
+import common from '@ohos.app.ability.common'
+import Want from '@ohos.app.ability.Want'
+import { fileIo as fs } from '@kit.CoreFileKit';
 
-interface settingsType {
-  ncopies: number,
-  currentCpuSelection: number
+const clearAllHistoryFiles = async () => {
+  const path = `${getContext().filesDir}/benchmark_history`
+
+  await fs.rmdir(path)
+  console.log('HISTORY: History Deleted')
+
+  await fs.mkdir(path)
+  console.log('HISTORY: History Path Created')
 }
 
 @Component
 export struct settings {
   @State barStyle: BarStyle = BarStyle.STANDARD;
-  cpuCount: number = 0;
-  @State cpuOptions: Array<SelectOption> = [];
-  @State settingsData: settingsType = {
-    ncopies: 1,
-    currentCpuSelection: -1
-  }
+  @StorageLink('nCopies') nCopies: number | undefined = AppStorage.get('nCopies');
+  @StorageLink('debugMode') debugMode: boolean | undefined = AppStorage.get('debugMode');
   pageInfo: NavPathStack = new NavPathStack()
 
   build() {
@@ -40,9 +41,6 @@ export struct settings {
               .fontWeight(FontWeight.Bolder)
             Text(`Harmony OS ${deviceInfo.majorVersion}.${deviceInfo.seniorVersion}.${deviceInfo.featureVersion}`)
               .fontSize(16)
-            Text(`${this.cpuCount} Cores Available`)
-              .fontSize(16)
-              .lineHeight(8)
           }
           .height(300)
           .justifyContent(FlexAlign.Center)
@@ -53,11 +51,30 @@ export struct settings {
           Column({ space: 12 }) {
             Row() {
               Text('n Copies')
-              TextInput({ text: String(this.settingsData.ncopies) })
+              TextInput({ text: `${this.nCopies}` })
+                .type(InputType.Number)
                 .width('50%')
                 .onChange((value: string) => {
-                  this.settingsData.ncopies = parseInt(value)
+                  this.nCopies = parseInt(value)
                 })
+                .onEditChange((state: boolean) => {
+                  if (!state && !this.nCopies) {
+                    this.nCopies = 1
+                  }
+                })
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+            .justifyContent(FlexAlign.SpaceBetween)
+
+            Row() {
+              Text('Debug Mode')
+              Toggle({
+                type: ToggleType.Switch,
+                isOn: $$this.debugMode
+              })
+                .height(24)
+                .width(48)
             }
             .width('100%')
             .alignItems(VerticalAlign.Center)
@@ -74,6 +91,9 @@ export struct settings {
 
             Row() {
               Button('Clear Benchmark History')
+                .onClick(() => {
+                  clearAllHistoryFiles()
+                })
                 .width('100%')
                 .buttonStyle(ButtonStyleMode.NORMAL)
                 .type(ButtonType.Capsule)
@@ -127,13 +147,8 @@ export struct settings {
         .margin({ top: 12 })
       }
     }
-    .onReady((context: NavDestinationContext) => {
+    .onReady(async (context: NavDestinationContext) => {
       this.pageInfo = context.pathStack
-      this.cpuCount = queryCpuCount()
-
-      for (let i = 0; i < this.cpuCount; ++i) {
-        this.cpuOptions.push({ value: i.toString() })
-      }
     })
     .title(
       {

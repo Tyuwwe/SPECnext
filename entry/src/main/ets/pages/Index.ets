@@ -1,11 +1,12 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import testNapi, { queryCpuCount } from 'libentry.so';
-import fs from '@ohos.file.fs';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
-import { zlib, BusinessError } from '@kit.BasicServicesKit';
+import { zlib } from '@kit.BasicServicesKit';
 import deviceInfo from '@ohos.deviceInfo';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
+import { JSON } from '@kit.ArkTS';
 
 async function resourceFile(resourcePath: string) {
   let uint8Array: Uint8Array = getContext()
@@ -216,6 +217,86 @@ class TestItem {
   }
 }
 
+// Benchmark History
+interface benchmarkSaveType {
+  name: string,
+  type: TestType,
+  status: Status,
+  reftime: number,
+  time: number,
+  score: number,
+  errmsg: string
+}
+
+interface benchHistoryType {
+  benchmark: benchmarkSaveType[],
+  date: string,
+  message: string,
+  coreSelect: string,
+  nCopies: string
+}
+
+AppStorage.setOrCreate('nCopies', 1)
+AppStorage.setOrCreate('debugMode', false)
+
+const getFormattedTime = (): string => {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = ("0" + (date.getMonth() + 1)).slice(-2)
+  const day = ("0" + date.getDate()).slice(-2)
+  const hours = ("0" + date.getHours()).slice(-2)
+  const minutes = ("0" + date.getMinutes()).slice(-2)
+  const seconds = ("0" + date.getSeconds()).slice(-2)
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
+const writeHistoryData = async (historyData: string, filename: string) => {
+  const dirPath = `${getContext().filesDir}/benchmark_history`
+  const path = `${getContext().filesDir}/benchmark_history/${filename}.json`
+  try {
+    fs.statSync(dirPath).isDirectory()
+  }
+  catch (err) {
+    fs.mkdirSync(dirPath)
+  }
+  try {
+    // console.log(`History: is Dic - ${fs.statSync(dirPath).isDirectory()}`)
+    const file = await fs.open(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+
+    await fs.write(file.fd, historyData)
+    await fs.close(file.fd)
+  }
+  catch(err) {
+    console.error('History: Saved Error' + err)
+  }
+}
+
+const handleSaveData = async (tests: Array<TestItem>, benchMessage: string, core: string, ncopy: string) => {
+  let benchList: benchmarkSaveType[] = []
+  for (let i of tests) {
+    if (i.checked) {
+      benchList.push({
+        name: i.name,
+        type: i.type,
+        status: i.status,
+        reftime: i.reftime,
+        time: i.time,
+        score: i.score,
+        errmsg: i.errmsg
+      })
+    }
+  }
+  let benchHistory: benchHistoryType = {
+    benchmark: benchList,
+    date: getFormattedTime(),
+    message: benchMessage,
+    coreSelect: core,
+    nCopies: ncopy
+  }
+
+  writeHistoryData(JSON.stringify(benchHistory), String(Date.now()))
+}
+
 @Entry
 @Component
 struct Index {
@@ -224,7 +305,8 @@ struct Index {
   cpuCount: number = 0;
   @State cpuOptions: MenuElement[] = [];
   @State currentCpuSelection: number = 0;
-  @State ncopies: number = 1;
+  @StorageLink('nCopies') nCopies: number = 1;
+  @StorageLink('debugMode') debugMode: boolean = false;
   path: string = "";
   selectTextSize: number = 12
   @State refreshCount: number = 0;
@@ -237,6 +319,7 @@ struct Index {
   errorScroller: Scroller = new Scroller()
 
   pageInfo: NavPathStack = new NavPathStack()
+
   @State menuItems:Array<NavigationMenuItem> = [
     {
       value:'history',
@@ -419,6 +502,17 @@ struct Index {
       Stack() {
         Row() {
           Column() {
+            if (this.debugMode === true) {
+              Row() {
+                Text('DEBUG MODE')
+                  .fontColor('#FFFFFF')
+              }
+              .alignItems(VerticalAlign.Center)
+              .justifyContent(FlexAlign.Center)
+              .backgroundColor($r('sys.color.background_emphasize'))
+              .width('100%')
+              .padding(4)
+            }
             // Header Checkbox
             Row({ space: 8 }) {
               Select(this.benchTypeOptions)
@@ -622,7 +716,7 @@ struct Index {
             Row() {
               Text('n Copies: ')
                 .fontWeight(FontWeight.Bold)
-              Text(String(this.ncopies))
+              Text(String(this.nCopies))
             }
             // Select(this.cpuOptions)
             //   .value(this.currentCpuSelectionText)
@@ -668,7 +762,7 @@ struct Index {
 
                   let testsToRun = this.testList.filter(item => item.checked)
                   // .map(item => item.id)
-                  runTestList(testsToRun, this.currentCpuSelection, this.ncopies, this.onStateChange)
+                  runTestList(testsToRun, this.currentCpuSelection, this.nCopies, this.onStateChange)
                     .then((res) => {
                       this.globalStatus = Status.Completed
                     })
@@ -680,10 +774,11 @@ struct Index {
                 .width('calc(100% - 48vp)')
                 .enabled(this.globalStatus == Status.Idle)
             } else {
-              Button("Reset")
+              Button("Reset & Save")
                 .fontSize(this.sz)
                 .fontWeight(FontWeight.Bold)
-                .onClick(() => {
+                .onClick(async () => {
+                  await handleSaveData(this.testList, this.message, `${this.cpuOptions[this.currentCpuSelection]?.value}`, `${this.nCopies}`)
                   this.globalStatus = Status.Idle
                   this.message += '\nIdle'
                   this.bShowLoading = false

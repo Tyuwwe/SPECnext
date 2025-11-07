@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\Tyuwwe\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.cer",
+          "certpath": "C:\\Users\\oct\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001A7256D2C9AE51A2AEA4572689ECA95D7FBFED38B06491099CBA7F5B8C98A5A2D98E29D9C4ABF6",
-          "profile": "C:\\Users\\Tyuwwe\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p7b",
+          "keyPassword": "0000001AD925096B16721BD4D37A852BE580C20EA6574EDBE3861573DC51B06F7B8BC9EFDDEBEE93998D",
+          "profile": "C:\\Users\\oct\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\Tyuwwe\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p12",
-          "storePassword": "0000001A0415FFB9D0B0AD67836EF841AF64E332A738A0299EBAB4B5572011E13F2BEB453F975733E7F3"
+          "storeFile": "C:\\Users\\oct\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p12",
+          "storePassword": "0000001AAB122D03245147CCDD82DAC486BB6340F089F3F3E6B2AAE42B43DF0D5F8B6F2BADF6BD141E7E"
         }
       }
     ],
