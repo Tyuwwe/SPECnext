@@ -324,12 +324,16 @@ struct Index {
   @State globalStatus: Status = Status.Idle;
   @State barStyle: BarStyle = BarStyle.STANDARD;
   @State activePage: number = 1
+
   @State bShowDecompressing: boolean = false
   @State bShowLoading: boolean = false
+
   @State nowSelection: string = 'All'
 
   @State decompressLog: string = ''
   @State decompressError: boolean = false
+
+  @State currentRunning: string = ''
 
   errorScroller: Scroller = new Scroller()
 
@@ -395,7 +399,11 @@ struct Index {
     Column() {
       Text('Benchmark Running')
         .fontWeight(FontWeight.Bold)
+
+      Text(this.currentRunning)
+        .fontWeight(FontWeight.Bold)
         .margin({ bottom: 12 })
+
       Scroll(this.errorScroller) {
         Text(this.message)
           .fontColor('#ff5a5a5a')
@@ -504,6 +512,7 @@ struct Index {
       case Status.Running:
         this.message += "\n"
         this.message += "Running " + this.testList[idx].name + "..."
+        this.currentRunning = `${this.testList[idx].name} ${this.testList[idx].errmsg}`
         break
       case Status.Completed:
           this.message += "\n"
@@ -701,7 +710,7 @@ struct Index {
             }
             .scrollable(ScrollDirection.Vertical)
             .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring,{alwaysEnabled:true,effectEdge:EffectEdge.END})
+            .edgeEffect(EdgeEffect.Spring,{alwaysEnabled:true})
             .fadingEdge(true)
             .padding({ bottom: 100 })
           }
@@ -794,8 +803,9 @@ struct Index {
                 .onClick(async () => {
                   this.globalStatus = Status.Running;
                   this.bShowLoading = true
+                  this.currentRunning = ''
 
-                  this.testList.forEach(item => {
+                    this.testList.forEach(item => {
                     if (item.checked)
                       item.status = Status.Pending
                     else item.status = Status.Skipped
