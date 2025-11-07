@@ -244,6 +244,49 @@ static napi_value QueryCpuCount(napi_env env, napi_callback_info info)
     return nret;
 }
 
+// Taken from https://github.com/jiegec/SPECCPU2017Harmony/blob/7b6f081a4/entry/src/main/cpp/napi_init.cpp#L43
+// measure clock frequency
+// parameter
+// 1: core index
+static napi_value Clock(napi_env env, napi_callback_info info) {
+  // get args
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+  // set cpu affinity
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  int core;
+  napi_get_value_int32(env, args[0], &core);
+  CPU_SET(core, &cpuset);
+  assert(sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0);
+  OH_LOG_INFO(LOG_APP, "Pin to cpu %{public}d", core);
+
+  int n = 500000;
+  auto before = std::chrono::steady_clock::now();
+  // learned from lmbench lat_mem_rd
+#define FIVE(X) X X X X X
+#define TEN(X) FIVE(X) FIVE(X)
+#define FIFTY(X) TEN(X) TEN(X) TEN(X) TEN(X) TEN(X)
+#define HUNDRED(X) FIFTY(X) FIFTY(X)
+#define THOUSAND(X) HUNDRED(TEN(X))
+
+  for (int i = 0; i < n; i++) {
+    asm volatile(".align 4\n" THOUSAND("add x1, x1, x1\n") : : : "x1");
+  }
+  auto after = std::chrono::steady_clock::now();
+  auto duration = after - before;  
+  auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+    
+  uint64_t freq = n * 1000 * 1000000000LL / (ns);
+  double dfreq = (double)freq;
+  OH_LOG_INFO(LOG_APP, "Clock frequency is %{public}f", (double)freq);
+  napi_value ret;
+  napi_create_double(env, dfreq, &ret);
+  return ret;
+}
+
 napi_threadsafe_function g_log_callback = NULL;
 
 napi_status do_log_update(int copy, int test_no) {
@@ -564,6 +607,7 @@ static napi_value Init(napi_env env, napi_value exports)
 //         { "runTest", nullptr, RunTest, nullptr, nullptr, nullptr, napi_default, nullptr },
         { "runTests", nullptr, RunTests, nullptr, nullptr, nullptr, napi_default, nullptr },
         { "queryCpuCount", nullptr, QueryCpuCount, nullptr, nullptr, nullptr, napi_default, nullptr },
+        {"clock", nullptr, Clock, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;

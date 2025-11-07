@@ -1,5 +1,5 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import testNapi, { queryCpuCount } from 'libentry.so';
+import testNapi, { clock, queryCpuCount } from 'libentry.so';
 import fs from '@ohos.file.fs';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
@@ -528,7 +528,10 @@ struct Index {
         this.cpuCount = queryCpuCount()
 
         for (let i = 0; i < this.cpuCount; ++i) {
-          this.cpuOptions.push({ value: i.toString() })
+          const freqHz = clock(i)
+          const freqMHz = freqHz / 1e3 / 1e3
+          this.cpuOptions.push({ value: `${i.toString()} - ${freqMHz.toFixed(2)}MHz` })
+          console.log(`core ${i} freq est. ${freqHz}Hz => ${freqMHz.toFixed(2)}MHz`)
         }
 
         let res = await resourceFile('spec_payload.zip')
