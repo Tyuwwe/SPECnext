@@ -1,6 +1,6 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import testNapi, { queryCpuCount } from 'libentry.so';
-import { fileIo as fs } from '@kit.CoreFileKit';
+import testNapi, { clock, queryCpuCount } from 'libentry.so';
+import fs from '@ohos.file.fs';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
 import { zlib } from '@kit.BasicServicesKit';
@@ -81,11 +81,15 @@ async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: numb
     if (exists) {
       await fs.rmdir(rundir)
     }
-    await fs.mkdir(rundir)
+    try {
+      await fs.mkdir(rundir)
+    } catch (err) {
+      console.log(`${rundir} exists`)
+    }
 
-    const srcExists = await fs.access(srcPath)
-    if (!srcExists)
-      throw Error("src not exist")
+    // const srcExists = await fs.access(srcPath)
+    // if (!srcExists)
+    //   throw Error("src not exist")
   } catch (err) {
     func(Status.Message, TEST_GLOBAL, 0, `Setup run dir failed: ${err}`)
   }
@@ -100,15 +104,16 @@ async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: numb
         await fs.copyDir(localSrcPath, localDstPath, 1)
       } catch (err) {
         func(Status.Message, TEST_GLOBAL, 0, `Copy #${i}: ${test.name} failed: ${err}`)
-        return new Promise<number>((res, rej) => {
-          rej(err)
-        })
+        func(Status.Error, test.id, 0, `Copy #${i} prep failed: ${err}`)
+        // return new Promise<number>((res, rej) => {
+        //   rej(err)
+        // })
       }
       func(Status.Message, TEST_GLOBAL, 0, `Setup Copy #${i}: ${test.name} completed.`)
     }
 
-    // await fs.listFile(curRunDir + "/500.perlbench_r").then((filenames: Array<string>) => {
-    //   console.info(`ls ${curRunDir}/500.perlbench_r`);
+    // await fs.listFile(curRunDir + "/507.cactuBSSN_r").then((filenames: Array<string>) => {
+    //   console.info(`ls ${curRunDir}/507.cactuBSSN_r`);
     //   for (let i = 0; i < filenames.length; i++) {
     //     console.info("fileName: %s",  `${filenames[i]}`);
     //   }
@@ -394,14 +399,14 @@ struct Index {
 
     // FPrate
     new TestItem('503.bwaves_r',    TestType.FPrate, false, Status.Skipped, 10028, -1, -1, ""),
-    new TestItem('507.cactuBSSN_r', TestType.FPrate, false, Status.Skipped, 16670, -1, -1, ""),
+    new TestItem('507.cactuBSSN_r', TestType.FPrate, false, Status.Skipped, 1266, -1, -1, ""),
     new TestItem('508.namd_r',      TestType.FPrate, false, Status.Skipped, 950,   -1, -1, ""),
     new TestItem('510.parest_r',    TestType.FPrate, false, Status.Skipped, 2616,  -1, -1, ""),
     new TestItem('511.povray_r',    TestType.FPrate, false, Status.Skipped, 2335,  -1, -1, ""),
     new TestItem('519.lbm_r',       TestType.FPrate, false, Status.Skipped, 1054,  -1, -1, ""),
     new TestItem('521.wrf_r',       TestType.FPrate, false, Status.Skipped, 2240,  -1, -1, ""),
     new TestItem('526.blender_r',   TestType.FPrate, false, Status.Skipped, 1523,  -1, -1, ""),
-    new TestItem('527.cam4_r',      TestType.FPrate, false, Status.Skipped, 8863,  -1, -1, ""),
+    new TestItem('527.cam4_r',      TestType.FPrate, false, Status.Skipped, 1749,  -1, -1, ""),
     new TestItem('538.imagick_r',   TestType.FPrate, false, Status.Skipped, 2487,  -1, -1, ""),
     new TestItem('544.nab_r',       TestType.FPrate, false, Status.Skipped, 1683,  -1, -1, ""),
     new TestItem('549.fotonik3d_r', TestType.FPrate, false, Status.Skipped, 3897,  -1, -1, ""),
@@ -688,9 +693,12 @@ struct Index {
             })
           }
 
-          let res = await resourceFile('spec_payload.zip')
-          this.path = res
-          hilog.info(0x0000, 'testTag', 'path: %{public}s', this.path)
+        for (let i = 0; i < this.cpuCount; ++i) {
+          const freqHz = clock(i)
+          const freqMHz = freqHz / 1e3 / 1e3
+          this.cpuOptions.push({ value: `${i.toString()} - ${freqMHz.toFixed(2)}MHz` })
+          console.log(`core ${i} freq est. ${freqHz}Hz => ${freqMHz.toFixed(2)}MHz`)
+        }
 
           this.globalStatus = Status.Pending
           decompressBundle('spec_payload.zip').then(() => {

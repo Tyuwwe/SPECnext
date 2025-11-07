@@ -18,13 +18,13 @@ add_library(wrap STATIC wrap.c)
 
 set_source_files_properties(wrap.c PROPERTIES LANGUAGE C)
 
-
-add_library(entry SHARED napi_init.cpp)
+enable_language(ASM)
+add_library(entry SHARED napi_init.cpp switch_stack.S)
 target_link_libraries(entry PUBLIC
                         libace_napi.z.so librawfile.z.so libqos.so libhilog_ndk.z.so
                         wrap)
 
-#add_subdirectory(cpu2017)
+add_subdirectory(cpu2017)
 #add_subdirectory(vkpeak)
 #add_subdirectory(c2clat)
 #add_subdirectory(llama.cpp)
