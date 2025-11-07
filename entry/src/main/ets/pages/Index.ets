@@ -22,20 +22,20 @@ async function resourceFile(resourcePath: string) {
   let file: fs.File = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
   fs.writeSync(file.fd, uint8Array.buffer);
   fs.closeSync(file);
-  // console.log("${tag} filePath:${filePath}");
+  console.log(`Resource file path: ${filePath}`);
   return filePath;
 }
 
 async function decompressBundle(bundleRelPath: string) {
-  let uint8Array: Uint8Array
-  try {
-    uint8Array = getContext()
-      .resourceManager
-      .getRawFileContentSync(bundleRelPath)
-  }
-  catch (error) {
-    throw new Error(error)
-  }
+  // let uint8Array: Uint8Array
+  // try {
+  //   uint8Array = getContext()
+  //     .resourceManager
+  //     .getRawFileContentSync(bundleRelPath)
+  // }
+  // catch (error) {
+  //   throw new Error(error)
+  // }
   const fileName = bundleRelPath.substring(bundleRelPath.lastIndexOf('/') + 1)
 
   const cwd = getContext().filesDir
@@ -738,6 +738,8 @@ struct Index {
 
           this.bShowDecompressing = true
           this.decompressLog = `Start Decompress Bundle`
+
+          resourceFile('spec_payload.zip')
 
           decompressBundle('spec_payload.zip').then(() => {
             this.bShowDecompressing = false
