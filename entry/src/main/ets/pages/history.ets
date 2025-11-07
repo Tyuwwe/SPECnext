@@ -1,6 +1,5 @@
 import { JSON, util } from '@kit.ArkTS';
 import { fileIo as fs, ListFileOptions } from '@kit.CoreFileKit';
-import { Font } from '@kit.ArkUI';
 
 enum TestType {
   INTrate,
@@ -90,14 +89,25 @@ export struct history {
     Scroll() {
       Column({ space: 12 }) {
         Column() {
-          Text('Message')
+          Text('Core Selection')
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_emphasize'))
-          Text(this.currentShowBenchmark.message)
+          Text(this.currentShowBenchmark.coreSelect)
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
+
+        Column() {
+          Text('n Copies')
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_emphasize'))
+          Text(this.currentShowBenchmark.nCopies)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
         Column() {
           Text('Tests')
             .fontSize(20)
@@ -107,7 +117,7 @@ export struct history {
             ForEach(this.currentShowBenchmark.benchmark, (item: benchmarkSaveType, index) => {
               Row() {
                 Text(item.name)
-                Text(`${item.score}`)
+                Text(`${item.score.toFixed(2)}`)
                   .fontWeight(FontWeight.Bold)
               }
               .justifyContent(FlexAlign.SpaceBetween)
@@ -125,21 +135,13 @@ export struct history {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
+
         Column() {
-          Text('Core Selection')
+          Text('Message')
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_emphasize'))
-          Text(this.currentShowBenchmark.coreSelect)
-        }
-        .width('100%')
-        .alignItems(HorizontalAlign.Start)
-        Column() {
-          Text('n Copies')
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_emphasize'))
-          Text(this.currentShowBenchmark.nCopies)
+          Text(this.currentShowBenchmark.message)
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
