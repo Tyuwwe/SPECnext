@@ -398,26 +398,26 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     int ncopies = 1;
     napi_get_value_int32(env, nvalue_ncopies, &ncopies);
     
-    test_states.resize(1);
-    test_states[0][TEST_GLOBAL];
-    if (ncopies < 1) {
-        test_states[0][TEST_GLOBAL].status = status_t::Error;
-        test_states[0][TEST_GLOBAL].message = "Error: ncopies < 1";
-        do_log_update(0,TEST_GLOBAL);
-        return ret;
-    } else {
-        test_states.resize(ncopies);
-    }
+//    test_states.resize(1);
+//    test_states[0][TEST_GLOBAL];
+//    if (ncopies < 1) {
+//        test_states[0][TEST_GLOBAL].status = status_t::Error;
+//        test_states[0][TEST_GLOBAL].message = "Error: ncopies < 1";
+//        do_log_update(0,TEST_GLOBAL);
+//        return ret;
+//    } else {
+//        test_states.resize(ncopies);
+//    }
     
-    // Create states beforehand
-    // avoiding rehash in multithreaded environment
-    for (int nc; nc < ncopies; ++nc) {
-        auto& state = test_states[nc];
-        state[TEST_GLOBAL];
-        for (auto& test: test_names) {
-            state[test.first];
-        }
-    }
+//    // Create states beforehand
+//    // avoiding rehash in multithreaded environment
+//    for (int nc; nc < ncopies; ++nc) {
+//        auto& state = test_states[nc];
+//        state[TEST_GLOBAL];
+//        for (auto& test: test_names) {
+//            state[test.first];
+//        }
+//    }
 
     /* Setup native-ts comm */
     napi_value resource_name = nullptr;
@@ -479,16 +479,26 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 do_log_update();
                 continue;
             }
-                
-            std::string path = std::string(SANDBOX_PATH) + '/' + test_names[test_no];
-            int ret_chdir = chdir(path.c_str());
-            push_state(test_no, status_t::Error, "chdir to: " + path);
+        
+            const std::string testpath = SANDBOX_PATH "/run/0/" + test_names[test_no];
+            int ret_chdir = chdir(testpath.c_str());
+            push_state(test_no, status_t::Message, "chdir to: " + testpath);
             do_log_update();
             if (ret_chdir != 0) {
-                push_state(test_no, status_t::Error, "chdir failed: " + std::to_string(errno));
+                push_state(test_no, status_t::Error, "chdir failed");
                 do_log_update();
                 continue;
             }
+                
+//            std::string path = std::string(SANDBOX_PATH) + '/' + test_names[test_no];
+//            int ret_chdir = chdir(path.c_str());
+//            push_state(test_no, status_t::Error, "chdir to: " + path);
+//            do_log_update();
+//            if (ret_chdir != 0) {
+//                push_state(test_no, status_t::Error, "chdir failed: " + std::to_string(errno));
+//                do_log_update();
+//                continue;
+//            }
             
             FILE *fstdout = freopen(STDOUT_FILENAME, "w+", stdout);
             FILE *fstderr = freopen(STDERR_FILENAME, "w+", stderr);
@@ -517,14 +527,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             double time = 0;
             int ret = 0;
             
-            const std::string testpath = SANDBOX_PATH "/run/0/" + test_names[test_no];
-            if (chdir(testpath.c_str()) != 0) {
-                test_states[0][test_no].status = status_t::Error;
-                test_states[0][test_no].message = "chdir failed";
-                do_log_update(0, test_no);
-                continue;
-            }
-            
             for (int i = 0; i < cmds.size(); ++i) {
                 push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
                 do_log_update();
@@ -539,10 +541,12 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 
                 std::string c;
                 for (auto cmd: cmds[i]) {
+                    if (cmd == nullptr)
+                        break;
                     c += cmd;
                     c += ' ';
                 }
-                push_state(TEST_GLOBAL, status_t::Message, "Running command: \n" + c);
+                push_state(test_no, status_t::Message, "Running command: \n" + c);
                 do_log_update();
                 
                 // Prepares for (possible) IO redirection
@@ -555,7 +559,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                         // i+2 - nullptr
                         freopen(argv[i + 1], "r", stdin);
                         has_redirection = true;
-                        push_state(TEST_GLOBAL, status_t::Message, std::string("Redirecting input from: ") + argv[i + 1] + std::string("\n"));
+                        push_state(test_no, status_t::Message, std::string("Redirecting input from: ") + argv[i + 1] + std::string("\n"));
                         do_log_update();
                     }
                 }
@@ -566,9 +570,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 if (f_init)
                     f_init();
                 
-                test_states[0][test_no].status = status_t::Running;
-                test_states[0][test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
-                do_log_update(0, test_no);
+                push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
+                do_log_update();
                 
                 auto begin = std::chrono::steady_clock::now();
 //                ret = f_main(argc, argv, envp);

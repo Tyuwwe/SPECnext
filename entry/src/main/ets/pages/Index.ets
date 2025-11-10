@@ -519,8 +519,6 @@ struct Index {
     new TestItem('9998.c2clat',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
     new TestItem('9999.vkpeak',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
   ];
-  onStateChange = async (newStatus: Status, test: number, time: number, msg: string) => {
-
 
   onStateChange = async (newStatus: Status, test: number, time: number, msg: string, timestamp: number) => {
     const TEST_GLOBAL = -1
@@ -596,6 +594,10 @@ struct Index {
       case Status.Idle:
         this.message += `\n[${timestamp}] `
         this.message += "Idle"
+        break
+      case Status.Message:
+        this.message += `\n[${timestamp}] [${this.testList[idx].name}] `
+        this.message += msg
         break
       default:
         this.message += `\n[${timestamp}] `
