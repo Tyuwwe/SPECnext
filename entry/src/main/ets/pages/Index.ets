@@ -335,11 +335,11 @@ struct Index {
   @State globalStatus: Status = Status.Idle;
   @State barStyle: BarStyle = BarStyle.STANDARD;
   @State activePage: number = 1
-  @State bShowDecompressing: boolean = false
+  @State bShowInitializeScreen: boolean = false
   @State bShowLoading: boolean = false
   @State nowSelection: string = 'All'
-  @State decompressLog: string = ''
-  @State decompressError: boolean = false
+  @State initLog: string = ''
+  @State initError: boolean = false
   @State currentRunning: string = 'None'
   errorScroller: Scroller = new Scroller()
   runningStatusScroller: Scroller = new Scroller()
@@ -365,8 +365,8 @@ struct Index {
 
   debugMenuOptions: MenuElement[] = [
     {
-      value: 'Toggle Decompress Modal',
-      action: () => this.bShowDecompressing = !this.bShowDecompressing
+      value: 'Toggle Init Modal',
+      action: () => this.bShowInitializeScreen = !this.bShowInitializeScreen
     },
     {
       value: 'Toggle Loading Modal',
@@ -410,13 +410,13 @@ struct Index {
   @Builder
   modalDecompressing() {
     Column({ space: 8 }) {
-      Text('Decompressing Bundle')
+      Text('Initializing')
         .fontWeight(FontWeight.Bold)
         .margin({ bottom: 12 })
       LoadingProgress()
         .width('30%')
-        .color(this.decompressError ? $r('sys.color.font_secondary') : $r('sys.color.warning'))
-      Text(this.decompressLog)
+        .color(this.initError ? $r('sys.color.font_secondary') : $r('sys.color.warning'))
+      Text(this.initLog)
         .fontSize(12)
     }
     .width('100%')
@@ -816,17 +816,17 @@ struct Index {
 
           this.globalStatus = Status.Idle
 
-          this.bShowDecompressing = true
-          this.decompressLog = `Start Decompress Bundle`
+          this.bShowInitializeScreen = true
+          this.initLog = `Start Decompress Bundle`
 
           resourceFile('spec_payload.zip')
 
           decompressBundle('spec_payload.zip').then(() => {
-            this.bShowDecompressing = false
+            this.bShowInitializeScreen = false
             this.globalStatus = Status.Idle
           })
             .catch((e: Error) => {
-              this.decompressLog = `Decompress Error: ${e}`
+              this.initLog = `Decompress Error: ${e}`
             })
 
           // Keep screen always on
@@ -942,7 +942,7 @@ struct Index {
         // .backdropBlur(24)
         .padding('24px')
       }
-      .bindContentCover($$this.bShowDecompressing, this.modalDecompressing, {
+      .bindContentCover($$this.bShowInitializeScreen, this.modalDecompressing, {
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
         modalTransition: ModalTransition.NONE
       })
