@@ -179,48 +179,48 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     
     // INTspeed
     {600, std::vector<std::vector<const char*>>{
-            {"libperlbench_s.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1"},
-            {"libperlbench_s.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300"},
-            {"libperlbench_s.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0"},
+            {"libperlbench_s.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1", nullptr},
+            {"libperlbench_s.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300", nullptr},
+            {"libperlbench_s.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0", nullptr},
         }
     },
     {602, std::vector<std::vector<const char*>>{
-            {"libgcc_s.so", "gcc-pp.c", "-O5", "-fipa-pta", "-o", "gcc-pp.opts-O5_-fipa-pta.s"},
-            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=1000", "-fselective-scheduling", "-fselective-scheduling2", "-o", "gcc-pp.opts-O5_-finline-limit_1000_-fselective-scheduling_-fselective-scheduling2.s"},
-            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=24000", "-fgcse", "-fgcse-las", "-fgcse-lm", "-fgcse-sm", "-o", "gcc-pp.opts-O5_-finline-limit_24000_-fgcse_-fgcse-las_-fgcse-lm_-fgcse-sm.s"}
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-fipa-pta", "-o", "gcc-pp.opts-O5_-fipa-pta.s", nullptr},
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=1000", "-fselective-scheduling", "-fselective-scheduling2", "-o", "gcc-pp.opts-O5_-finline-limit_1000_-fselective-scheduling_-fselective-scheduling2.s", nullptr},
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=24000", "-fgcse", "-fgcse-las", "-fgcse-lm", "-fgcse-sm", "-o", "gcc-pp.opts-O5_-finline-limit_24000_-fgcse_-fgcse-las_-fgcse-lm_-fgcse-sm.s", nullptr}
         }
     },
-    {605, std::vector<std::vector<const char*>>{{"libmcf_s.so", "inp.in"}}},
-    {620, std::vector<std::vector<const char*>>{{"libomnetpp_s.so", "-c", "General", "-r", "0"}}},
-    {623, std::vector<std::vector<const char*>>{{{"libxalancbmk_s.so", "-v", "t5.xml", "xalanc.xsl"}}}},
+    {605, std::vector<std::vector<const char*>>{{"libmcf_s.so", "inp.in", nullptr}}},
+    {620, std::vector<std::vector<const char*>>{{"libomnetpp_s.so", "-c", "General", "-r", "0", nullptr}}},
+    {623, std::vector<std::vector<const char*>>{{{"libxalancbmk_s.so", "-v", "t5.xml", "xalanc.xsl", nullptr}}}},
     {625, std::vector<std::vector<const char*>>{
-            {"libx264_s.so", "--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.err"},
-            {"libx264_s.so", "--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", "--dumpyuv", "200", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.err"},
-            {"libx264_s.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_0500-1250_x264_s_base.mytest-m64_x264.out", "2>>", "run_0500-1250_x264_s_base.mytest-m64_x264.err"},
+            {"libx264_s.so", "--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.err", nullptr},
+            {"libx264_s.so", "--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", "--dumpyuv", "200", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.err", nullptr},
+            {"libx264_s.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_0500-1250_x264_s_base.mytest-m64_x264.out", "2>>", "run_0500-1250_x264_s_base.mytest-m64_x264.err", nullptr},
         }
     },
-    {631, std::vector<std::vector<const char*>>{{{"libdeepsjeng_s.so", "ref.txt"}}}},
-    {641, std::vector<std::vector<const char*>>{{"libleela_s.so", "ref.sgf"}}},
+    {631, std::vector<std::vector<const char*>>{{{"libdeepsjeng_s.so", "ref.txt", nullptr}}}},
+    {641, std::vector<std::vector<const char*>>{{"libleela_s.so", "ref.sgf", nullptr}}},
     {657, std::vector<std::vector<const char*>>{
-            {"libxz_s.so", "cpu2006docs.tar.xz", "6643", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "1036078272", "1111795472", "4"},
-            {"libxz_s.so", "cld.tar.xz", "1400", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "536995164", "539938872", "8"}
+            {"libxz_s.so", "cpu2006docs.tar.xz", "6643", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "1036078272", "1111795472", "4", nullptr},
+            {"libxz_s.so", "cld.tar.xz", "1400", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "536995164", "539938872", "8", nullptr}
         }
     },
     
     // FPspeed
-    {619, std::vector<std::vector<const char*>>{{"liblbm_s.so", "2000", "reference.dat", "0", "0", "200_200_260_ldc.of"}}},
-    {638, std::vector<std::vector<const char*>>{{"libimagick_s.so", "-limit", "disk", "0", "refspeed_input.tga", "-resize", "817%", "-rotate", "-2.76", "-shave", "540x375", "-alpha", "remove", "-auto-level", "-contrast-stretch", "1x1%", "-colorspace", "Lab", "-channel", "R", "-equalize", "+channel", "-colorspace", "sRGB", "-define", "histogram:unique-colors=false", "-adaptive-blur", "0x5", "-despeckle", "-auto-gamma", "-adaptive-sharpen", "55", "-enhance", "-brightness-contrast", "10x10", "-resize", "30%", "refspeed_output.tga"}}},
-    {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
+    {619, std::vector<std::vector<const char*>>{{"liblbm_s.so", "2000", "reference.dat", "0", "0", "200_200_260_ldc.of", nullptr}}},
+    {638, std::vector<std::vector<const char*>>{{"libimagick_s.so", "-limit", "disk", "0", "refspeed_input.tga", "-resize", "817%", "-rotate", "-2.76", "-shave", "540x375", "-alpha", "remove", "-auto-level", "-contrast-stretch", "1x1%", "-colorspace", "Lab", "-channel", "R", "-equalize", "+channel", "-colorspace", "sRGB", "-define", "histogram:unique-colors=false", "-adaptive-blur", "0x5", "-despeckle", "-auto-gamma", "-adaptive-sharpen", "55", "-enhance", "-brightness-contrast", "10x10", "-resize", "30%", "refspeed_output.tga", nullptr}}},
+    {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220", nullptr}}},
     
     // Other
-    {9994, std::vector<std::vector<const char*>>{{"libstream.so"}}},
-    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=60", "-c:v", "libx264", "-crf", "15", "-preset", "veryslow", "-pix_fmt", "yuv420p", "-t", "30", "test.mp4"}}},
-//    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-codecs"}}},
-    {9996, std::vector<std::vector<const char*>>{{"lib7za.so", "b", "-m=*"}}},
-//    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000"}}},
-    {9997, std::vector<std::vector<const char*>>{{"libllama-bench.so", "-m", "deepseek-r1-distill-llama-3b-q4_k_m.gguf", "-t", "20"}}},
-    {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
-    {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
+    {9994, std::vector<std::vector<const char*>>{{"libstream.so", nullptr}}},
+    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=60", "-c:v", "libx264", "-crf", "15", "-preset", "veryslow", "-pix_fmt", "yuv420p", "-t", "30", "test.mp4", nullptr}}},
+//    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-codecs", nullptr}}},
+    {9996, std::vector<std::vector<const char*>>{{"lib7za.so", "b", "-m=*", nullptr}}},
+//    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000", nullptr}}},
+    {9997, std::vector<std::vector<const char*>>{{"libllama-bench.so", "-m", "deepseek-r1-distill-llama-3b-q4_k_m.gguf", "-t", "20", nullptr}}},
+    {9998, std::vector<std::vector<const char*>>{{"libc2clat.so", nullptr}}},
+    {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0", nullptr}}},
 };
 
 static napi_value Add(napi_env env, napi_callback_info info)

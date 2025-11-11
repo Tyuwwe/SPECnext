@@ -326,7 +326,7 @@ struct Index {
   @State sz: number = 20;
   cpuCount: number = 0;
   @State cpuOptions: MenuElement[] = [];
-  @State currentCpuSelection: number = 0;
+  @State currentCpuSelection: number = -1;
   @StorageLink('nCopies') nCopies: number = 1;
   @StorageLink('debugMode') debugMode: boolean = false;
   path: string = "";
@@ -811,13 +811,19 @@ struct Index {
             })
             console.log(`core ${i} freq est. ${freqHz}Hz => ${freqMHz.toFixed(2)}MHz`)
           }
+          this.cpuOptions.push({
+            value: `Any`,
+            action: () => {
+              this.currentCpuSelection = -1
+            }
+          })
 
           this.globalStatus = Status.Pending
 
           this.globalStatus = Status.Idle
 
           this.bShowInitializeScreen = true
-          this.initLog = `Start Decompress Bundle`
+          this.initLog = `Start Decompressing Bundle`
 
           resourceFile('spec_payload.zip')
 
@@ -843,7 +849,7 @@ struct Index {
             Row() {
               Text('Core Selection: ')
                 .fontWeight(FontWeight.Bold)
-              Text(this.cpuOptions[this.currentCpuSelection]?.value)
+              Text(`${(this.currentCpuSelection == -1) ? "Any" : this.cpuOptions[this.currentCpuSelection]?.value}`)
             }
 
             Row() {
@@ -916,7 +922,7 @@ struct Index {
                 .fontWeight(FontWeight.Bold)
                 .onClick(async () => {
                   await handleSaveData(this.testList, this.message,
-                    `${this.cpuOptions[this.currentCpuSelection]?.value}`, `${this.nCopies}`)
+                    `${(this.currentCpuSelection == -1) ? "Any" : this.cpuOptions[this.currentCpuSelection]?.value}`, `${this.nCopies}`)
                   this.globalStatus = Status.Idle
                   this.message = ''
                   this.bShowLoading = false
