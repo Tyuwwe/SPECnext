@@ -298,6 +298,12 @@ static napi_value Clock(napi_env env, napi_callback_info info) {
   OH_LOG_INFO(LOG_APP, "Clock frequency is %{public}f", (double)freq);
   napi_value ret;
   napi_create_double(env, dfreq, &ret);
+    
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    unsigned long* pmask = (unsigned long*)&mask;
+    *pmask = -1;
+    assert(sched_setaffinity(0, sizeof(mask), &mask) == 0);
   return ret;
 }
 
@@ -583,9 +589,14 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                         CPU_ZERO(&mask);
                         CPU_SET(cpuidx, &mask);
                         if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
-//                            test_states[0][TEST_GLOBAL].status = status_t::Error;
-//                            test_states[0][TEST_GLOBAL].message = "Set thread affinity failed";
-//                            do_log_update(0, TEST_GLOBAL);
+                            return -1;
+                        }
+                    } else {
+                        cpu_set_t mask;
+                        CPU_ZERO(&mask);
+                        unsigned long* pmask = (unsigned long*)&mask;
+                        *pmask = -1;
+                        if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
                             return -1;
                         }
                     }
