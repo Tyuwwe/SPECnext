@@ -220,7 +220,7 @@ export struct history {
             .width('90%')
             .borderRadius(24)
             .clip(true)
-            .backgroundColor($r('sys.color.background_secondary'))
+            .backgroundColor($r('app.color.history_item_background'))
           })
         }
         .margin({ top: 12 })

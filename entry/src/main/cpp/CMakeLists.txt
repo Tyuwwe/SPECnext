@@ -24,7 +24,7 @@ target_link_libraries(entry PUBLIC
                         libace_napi.z.so librawfile.z.so libqos.so libhilog_ndk.z.so
                         wrap)
 
-add_subdirectory(cpu2017)
+#add_subdirectory(cpu2017)
 #add_subdirectory(vkpeak)
 #add_subdirectory(c2clat)
 #add_subdirectory(llama.cpp)

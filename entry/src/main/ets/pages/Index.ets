@@ -333,13 +333,14 @@ struct Index {
   @State refreshCount: number = 0;
   @State globalStatus: Status = Status.Idle;
   @State barStyle: BarStyle = BarStyle.STANDARD;
-  @State activePage: number = 1
   @State bShowDecompressing: boolean = false
   @State bShowLoading: boolean = false
   @State nowSelection: string = 'All'
   @State decompressLog: string = ''
   @State decompressError: boolean = false
   @State currentRunning: string = 'None'
+  categoryColor: ResourceStr = $r('sys.color.font_tertiary')
+  dividerColor: ResourceStr = $r('sys.color.font_fourth')
   errorScroller: Scroller = new Scroller()
   runningStatusScroller: Scroller = new Scroller()
   pageInfo: NavPathStack = new NavPathStack()
@@ -452,7 +453,7 @@ struct Index {
       List({ scroller: this.errorScroller }) {
         ListItem() {
           Text(this.message)
-            .fontColor('#ff5a5a5a')
+            .fontColor($r('sys.color.font_tertiary'))
             .fontSize(12)
         }
       }
@@ -630,7 +631,7 @@ struct Index {
                 Row() {
                   SymbolGlyph($r('sys.symbol.trash'))
                     .renderingStrategy(SymbolRenderingStrategy.MULTIPLE_COLOR)
-                    .fontColor(['#FFFFFF', '#ffd0d0d0'])
+                    .fontColor([$r('sys.color.alert')])
                 }
                 .alignItems(VerticalAlign.Center)
                 .justifyContent(FlexAlign.Center)
@@ -638,6 +639,7 @@ struct Index {
                 .height(40)
               }
               .role(ButtonRole.ERROR)
+              .buttonStyle(ButtonStyleMode.NORMAL)
               .onClick(() => {
                 for (let i of this.testList) {
                   i.checked = false
@@ -699,11 +701,11 @@ struct Index {
                   // INTrate tests
                   Text(testTypeToString(TestType.INTrate))
                     .fontSize(15)
-                    .fontColor(0xCCCCCC)
+                    .fontColor(this.categoryColor)
                     .width('100%')
                     .padding('2%')
                     .textAlign(TextAlign.Start)
-                  Divider().strokeWidth(3).color('#F1F3F5')
+                  Divider().strokeWidth(2).color(this.dividerColor)
                   ForEach(this.testList, (item: TestItem) => {
                     if (item.type == TestType.INTrate) {
                       TestRow({ globalStatus: this.globalStatus, test: item })
@@ -715,11 +717,11 @@ struct Index {
                   // FPrate tests
                   Text(testTypeToString(TestType.FPrate))
                     .fontSize(15)
-                    .fontColor(0xCCCCCC)
+                    .fontColor(this.categoryColor)
                     .width('100%')
                     .padding('2%')
                     .textAlign(TextAlign.Start)
-                  Divider().strokeWidth(3).color('#F1F3F5')
+                  Divider().strokeWidth(2).color(this.dividerColor)
                   ForEach(this.testList, (item: TestItem) => {
                     if (item.type == TestType.FPrate) {
                       TestRow({ globalStatus: this.globalStatus, test: item })
@@ -731,11 +733,11 @@ struct Index {
                   // INTspeed tests
                   Text(testTypeToString(TestType.INTspeed))
                     .fontSize(15)
-                    .fontColor(0xCCCCCC)
+                    .fontColor(this.categoryColor)
                     .width('100%')
                     .padding('2%')
                     .textAlign(TextAlign.Start)
-                  Divider().strokeWidth(3).color('#F1F3F5')
+                  Divider().strokeWidth(2).color(this.dividerColor)
                   ForEach(this.testList, (item: TestItem) => {
                     if (item.type == TestType.INTspeed) {
                       TestRow({ globalStatus: this.globalStatus, test: item })
@@ -747,11 +749,11 @@ struct Index {
                   // FPspeed tests
                   Text(testTypeToString(TestType.FPspeed))
                     .fontSize(15)
-                    .fontColor(0xCCCCCC)
+                    .fontColor(this.categoryColor)
                     .width('100%')
                     .padding('2%')
                     .textAlign(TextAlign.Start)
-                  Divider().strokeWidth(3).color('#F1F3F5')
+                  Divider().strokeWidth(2).color(this.dividerColor)
                   ForEach(this.testList, (item: TestItem) => {
                     if (item.type == TestType.FPspeed) {
                       TestRow({ globalStatus: this.globalStatus, test: item })
@@ -764,11 +766,11 @@ struct Index {
                   // Other tests
                   Text(testTypeToString(TestType.Other))
                     .fontSize(15)
-                    .fontColor(0xCCCCCC)
+                    .fontColor(this.categoryColor)
                     .width('100%')
                     .padding('2%')
                     .textAlign(TextAlign.Start)
-                  Divider().strokeWidth(3).color('#F1F3F5')
+                  Divider().strokeWidth(2).color(this.dividerColor)
                   ForEach(this.testList, (item: TestItem) => {
                     if (item.type == TestType.Other) {
                       TestRow({ globalStatus: this.globalStatus, test: item })
@@ -919,19 +921,19 @@ struct Index {
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
         .bindContentCover($$this.bShowLoading, this.modalLoading(), {
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          backgroundColor: $r('app.color.modal_transparent_background'),
           modalTransition: ModalTransition.NONE
         })
         .borderRadius({
           topLeft: 20,
           topRight: 20
         })
-        .backgroundColor('rgb(255, 255, 255)')
+        .backgroundColor($r('sys.color.comp_background_primary'))
         // .backdropBlur(24)
         .padding('24px')
       }
       .bindContentCover($$this.bShowDecompressing, this.modalDecompressing, {
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: $r('app.color.modal_transparent_background'),
         modalTransition: ModalTransition.NONE
       })
       .alignContent(Alignment.Bottom)
@@ -958,7 +960,7 @@ struct Index {
 struct TestRow {
   @Prop globalStatus: Status;
   @ObjectLink test: TestItem;
-  @State rowColor: string = 'rgb(255, 255, 255)'
+  @State rowColor: ResourceStr = $r('sys.color.background_primary')
   statusText = () => {
     switch (this.test.status) {
       case Status.Pending:
@@ -983,21 +985,21 @@ struct TestRow {
   }
   statusFontColor = () => {
     if (this.globalStatus == Status.Idle) {
-      return 0x000000;
+      return $r('sys.color.font_primary');
     }
     switch (this.test.status) {
       case Status.Skipped:
-        return 0xCCCCCC;
+        return $r('sys.color.font_tertiary');
       default:
-        return 0x000000;
+        return $r('sys.color.font_primary');
     }
   }
   statusRowBackground = () => {
     if (this.globalStatus == Status.Idle) {
-      return this.test.checked ? 'rgb(235, 235, 235)' : 'rgb(255, 255, 255)';
+      return this.test.checked ? $r('app.color.history_item_background') : $r('sys.color.background_primary');
     }
-    return (this.test.status == Status.Initializing || this.test.status == Status.Running) ? 'rgb(235, 235, 235)' :
-      'rgb(255, 255, 255)';
+    return (this.test.status == Status.Initializing || this.test.status == Status.Running) ? $r('sys.color.background_secondary') :
+      $r('sys.color.background_primary');
   }
 
   build() {

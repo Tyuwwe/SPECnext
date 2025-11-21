@@ -2,15 +2,15 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#FFFFFF"
+      "value": "#111111"
     },
     {
       "name": "modal_transparent_background",
-      "value": "#CDFFFFFF"
+      "value": "#CD000000"
     },
     {
       "name": "history_item_background",
-      "value": "#F1F3F5"
+      "value": "#2E3033"
     }
   ]
 }

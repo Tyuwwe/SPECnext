@@ -25,7 +25,7 @@ export struct settings {
       Column() {
         Stack() {
           Row()
-            .backgroundColor('rgb(245, 245, 245)')
+            .backgroundColor($r('sys.color.background_secondary'))
             .width('100%')
             .height(300)
             .borderRadius({
@@ -36,6 +36,7 @@ export struct settings {
             Image($r('app.media.ic_public_devices_phone'))
               .size({ width: '25%', height: undefined })
               .autoResize(true)
+              .fillColor($r('sys.color.font_primary'))
             Text(`${deviceInfo.marketName}`)
               .fontSize(24)
               .fontWeight(FontWeight.Bolder)
@@ -108,10 +109,10 @@ export struct settings {
         Row({ space: 8 }) {
           Text('Contributors:')
             .fontSize(12)
-            .fontColor('rgb(200, 200, 200)')
+            .fontColor($r('sys.color.font_secondary'))
           Text('@Swung0x48')
             .fontSize(12)
-            .fontColor('rgb(200, 200, 200)')
+            .fontColor($r('sys.color.font_secondary'))
             .onClick(() => {
               try {
                 let want:Want = {
@@ -128,7 +129,7 @@ export struct settings {
             })
           Text('@Tyuwwe')
             .fontSize(12)
-            .fontColor('rgb(200, 200, 200)')
+            .fontColor($r('sys.color.font_secondary'))
             .onClick(() => {
               try {
                 let want:Want = {
