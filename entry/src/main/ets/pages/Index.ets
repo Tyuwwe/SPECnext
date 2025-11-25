@@ -398,7 +398,7 @@ struct Index {
   debugMenuOptions: MenuElement[] = [
     {
       value: 'Toggle Init Modal',
-      action: () => this.bShowInitializeScreen = !this.bShowInitializeScreen
+      action: () => this.bShowDecompressing = !this.bShowDecompressing
     },
     {
       value: 'Toggle Loading Modal',
@@ -411,6 +411,10 @@ struct Index {
     {
       value: 'Set Global Status to ERROR',
       action: () => this.globalStatus = Status.Error
+    },
+    {
+      value: 'Set Global Status to RUNNING',
+      action: () => this.globalStatus = Status.Running
     },
     {
       value: 'Set Global Status to COMPETED',
@@ -864,13 +868,13 @@ struct Index {
 
           this.globalStatus = Status.Idle
 
-          this.bShowInitializeScreen = true
+          this.bShowDecompressing = true
           this.initLog = `Start Decompressing Bundle`
 
           resourceFile('spec_payload.zip')
 
           decompressBundle('spec_payload.zip').then(() => {
-            this.bShowInitializeScreen = false
+            this.bShowDecompressing = false
             this.globalStatus = Status.Idle
           })
             .catch((e: Error) => {
@@ -930,7 +934,7 @@ struct Index {
             }
             .enabled(this.globalStatus === Status.Idle)
 
-            if (this.globalStatus != Status.Completed) {
+            if (this.globalStatus === Status.Idle) {
               Button("Run")
                 .fontSize(this.sz)
                 .fontWeight(FontWeight.Bold)
@@ -959,6 +963,15 @@ struct Index {
                 })
                 .width('calc(100% - 48vp)')
                 .enabled(this.globalStatus == Status.Idle)
+            } else if (this.globalStatus === Status.Running) {
+              Button("Show Running Status")
+                .fontSize(this.sz)
+                .fontWeight(FontWeight.Bold)
+                .onClick(async () => {
+                  this.bShowLoading = true
+                })
+                .width('calc(100% - 48vp)')
+                .enabled(!this.bShowLoading)
             } else {
               Button("Reset & Save")
                 .fontSize(this.sz)
