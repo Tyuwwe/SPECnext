@@ -1,6 +1,7 @@
 #include "napi/native_api.h"
 #include <cassert>
 #include <cstddef>
+#include <fcntl.h>
 #include <mutex>
 #include <condition_variable>
 #include <rawfile/raw_file.h>
