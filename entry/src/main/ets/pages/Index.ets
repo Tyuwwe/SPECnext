@@ -7,6 +7,7 @@ import { zlib } from '@kit.BasicServicesKit';
 import deviceInfo from '@ohos.deviceInfo';
 import { SymbolGlyphModifier } from '@kit.ArkUI';
 import { JSON } from '@kit.ArkTS';
+import { systemLoad } from '@kit.BasicServicesKit';
 
 async function resourceFile(resourcePath: string) {
   let uint8Array: Uint8Array = getContext()
@@ -346,6 +347,7 @@ struct Index {
   runningStatusScroller: Scroller = new Scroller()
   pageInfo: NavPathStack = new NavPathStack()
   @State currentRunningHistory: Array<benchRunnningHistoryType> = []
+  @State systemLoadLevel: string = ''
 
   @State menuItems: Array<NavigationMenuItem> = [
     {
@@ -363,6 +365,35 @@ struct Index {
       }
     },
   ]
+
+  onSystemLoadChange = (res: systemLoad.SystemLoadLevel) => {
+    switch (res) {
+      case systemLoad.SystemLoadLevel.LOW:
+        this.systemLoadLevel = 'LOW'
+        break
+      case systemLoad.SystemLoadLevel.NORMAL:
+        this.systemLoadLevel = 'NORMAL'
+        break
+      case systemLoad.SystemLoadLevel.MEDIUM:
+        this.systemLoadLevel = 'MEDIUM'
+        break
+      case systemLoad.SystemLoadLevel.HIGH:
+        this.systemLoadLevel = 'HIGH'
+        break
+      case systemLoad.SystemLoadLevel.OVERHEATED:
+        this.systemLoadLevel = 'OVERHEATED'
+        break
+      case systemLoad.SystemLoadLevel.WARNING:
+        this.systemLoadLevel = 'WARNING'
+        break
+      case systemLoad.SystemLoadLevel.EMERGENCY:
+        this.systemLoadLevel = 'EMERGENCY'
+        break
+      case systemLoad.SystemLoadLevel.ESCAPE:
+        this.systemLoadLevel = 'ESCAPE'
+        break
+    }
+  }
 
   debugMenuOptions: MenuElement[] = [
     {
@@ -428,6 +459,9 @@ struct Index {
   @Builder
   modalLoading() {
     Column() {
+      Text(`SystemLoadLevel: ${this.systemLoadLevel.toString()}`)
+        .fontWeight(FontWeight.Bold)
+
       Text('SPECnext Benchmark Running')
         .fontWeight(FontWeight.Bold)
 
@@ -791,6 +825,12 @@ struct Index {
         .width('100%')
         .height('100%')
         .onAppear(async () => {
+          systemLoad.getLevel().then((res: systemLoad.SystemLoadLevel) => {
+            this.onSystemLoadChange(res)
+          })
+
+          systemLoad.on('systemLoadChange', this.onSystemLoadChange);
+
           this.cpuCount = queryCpuCount()
 
           for (let i = 0; i < this.cpuCount; ++i) {
@@ -873,6 +913,7 @@ struct Index {
               .height(40)
               .bindMenu(this.cpuOptions)
             }
+            .enabled(this.globalStatus === Status.Idle)
 
             if (this.globalStatus != Status.Completed) {
               Button("Run")
