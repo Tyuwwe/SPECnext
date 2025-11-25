@@ -580,6 +580,9 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
                 do_log_update();
                 
+                push_state(TEST_GLOBAL, status_t::Running, "");
+                do_log_update();
+                
                 auto begin = std::chrono::steady_clock::now();
 //                ret = f_main(argc, argv, envp);
                 pid_t pid = fork();

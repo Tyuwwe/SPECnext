@@ -335,7 +335,7 @@ struct Index {
   @State refreshCount: number = 0;
   @State globalStatus: Status = Status.Idle;
   @State barStyle: BarStyle = BarStyle.STANDARD;
-  @State bShowDecompressing: boolean = false
+  @State bShowInitializeScreen: boolean = false
   @State bShowLoading: boolean = false
   @State nowSelection: string = 'All'
   @State initLog: string = ''
@@ -398,7 +398,7 @@ struct Index {
   debugMenuOptions: MenuElement[] = [
     {
       value: 'Toggle Init Modal',
-      action: () => this.bShowDecompressing = !this.bShowDecompressing
+      action: () => this.bShowInitializeScreen = !this.bShowInitializeScreen
     },
     {
       value: 'Toggle Loading Modal',
@@ -868,13 +868,13 @@ struct Index {
 
           this.globalStatus = Status.Idle
 
-          this.bShowDecompressing = true
+          this.bShowInitializeScreen = true
           this.initLog = `Start Decompressing Bundle`
 
           resourceFile('spec_payload.zip')
 
           decompressBundle('spec_payload.zip').then(() => {
-            this.bShowDecompressing = false
+            this.bShowInitializeScreen = false
             this.globalStatus = Status.Idle
           })
             .catch((e: Error) => {
@@ -963,7 +963,7 @@ struct Index {
                 })
                 .width('calc(100% - 48vp)')
                 .enabled(this.globalStatus == Status.Idle)
-            } else if (this.globalStatus === Status.Running) {
+            } else if (this.globalStatus == Status.Running || this.globalStatus == Status.Initializing) {
               Button("Show Running Status")
                 .fontSize(this.sz)
                 .fontWeight(FontWeight.Bold)
