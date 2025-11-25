@@ -327,7 +327,7 @@ struct Index {
   @State sz: number = 20;
   cpuCount: number = 0;
   @State cpuOptions: MenuElement[] = [];
-  @State currentCpuSelection: number = 0;
+  @State currentCpuSelection: number = -1;
   @StorageLink('nCopies') nCopies: number = 1;
   @StorageLink('debugMode') debugMode: boolean = false;
   path: string = "";
@@ -338,8 +338,8 @@ struct Index {
   @State bShowDecompressing: boolean = false
   @State bShowLoading: boolean = false
   @State nowSelection: string = 'All'
-  @State decompressLog: string = ''
-  @State decompressError: boolean = false
+  @State initLog: string = ''
+  @State initError: boolean = false
   @State currentRunning: string = 'None'
   categoryColor: ResourceStr = $r('sys.color.font_tertiary')
   dividerColor: ResourceStr = $r('sys.color.font_fourth')
@@ -397,8 +397,8 @@ struct Index {
 
   debugMenuOptions: MenuElement[] = [
     {
-      value: 'Toggle Decompress Modal',
-      action: () => this.bShowDecompressing = !this.bShowDecompressing
+      value: 'Toggle Init Modal',
+      action: () => this.bShowInitializeScreen = !this.bShowInitializeScreen
     },
     {
       value: 'Toggle Loading Modal',
@@ -442,13 +442,13 @@ struct Index {
   @Builder
   modalDecompressing() {
     Column({ space: 8 }) {
-      Text('Decompressing Bundle')
+      Text('Initializing')
         .fontWeight(FontWeight.Bold)
         .margin({ bottom: 12 })
       LoadingProgress()
         .width('30%')
-        .color(this.decompressError ? $r('sys.color.font_secondary') : $r('sys.color.warning'))
-      Text(this.decompressLog)
+        .color(this.initError ? $r('sys.color.font_secondary') : $r('sys.color.warning'))
+      Text(this.initLog)
         .fontSize(12)
     }
     .width('100%')
@@ -547,11 +547,16 @@ struct Index {
     new TestItem('644.nab_s', TestType.FPspeed, false, Status.Skipped, 17472, -1, -1, ""),
 
     // Other
-    new TestItem('9997.llama-server', TestType.Other, false, Status.Skipped, 1, -1, -1, ""),
-    new TestItem('9998.c2clat', TestType.Other, false, Status.Skipped, 1, -1, -1, ""),
-    new TestItem('9999.vkpeak', TestType.Other, false, Status.Skipped, 1, -1, -1, ""),
+    new TestItem('9994.stream',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9995.ffmpeg',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9996.p7zip',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9997.llama-bench',TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9998.c2clat',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9999.vkpeak',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
   ];
-  onStateChange = async (newStatus: Status, test: number, time: number, msg: string) => {
+
+  onStateChange = async (newStatus: Status, test: number, time: number, msg: string, timestamp: number) => {
+    const TEST_GLOBAL = -1
     // this.message = message
 
     if (test == TEST_GLOBAL) {
@@ -560,19 +565,19 @@ struct Index {
       }
       switch (newStatus) {
         case Status.Initializing:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += "Initializing..."
           return
         case Status.Message:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += msg
           return
         case Status.Error:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += "Failed with error: " + msg
           return
         case Status.Completed:
-          this.message += "\n"
+          this.message += `\n[${timestamp}] `
           this.message += "All tests completed."
           this.bShowLoading = false
           return
@@ -589,16 +594,16 @@ struct Index {
 
     switch (newStatus) {
       case Status.Initializing:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Setting up " + this.testList[idx].name + "..."
         break
       case Status.Running:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Running " + this.testList[idx].name + "..."
         this.currentRunning = `${this.testList[idx].name} ${this.testList[idx].errmsg}`
         break
       case Status.Completed:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.testList[idx].time = time
         this.testList[idx].score = this.testList[idx].reftime / time
         this.message += this.testList[idx].name + " completed, elapsed " +
@@ -612,7 +617,7 @@ struct Index {
         })
         break
       case Status.Error:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += this.testList[idx].name + " failed with: " + msg
 
         this.currentRunningHistory.push({
@@ -622,11 +627,15 @@ struct Index {
         })
         break
       case Status.Idle:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Idle"
         break
+      case Status.Message:
+        this.message += `\n[${timestamp}] [${this.testList[idx].name}] `
+        this.message += msg
+        break
       default:
-        this.message += "\n"
+        this.message += `\n[${timestamp}] `
         this.message += "Unknown"
         break
     }
@@ -844,22 +853,28 @@ struct Index {
             })
             console.log(`core ${i} freq est. ${freqHz}Hz => ${freqMHz.toFixed(2)}MHz`)
           }
+          this.cpuOptions.push({
+            value: `Any`,
+            action: () => {
+              this.currentCpuSelection = -1
+            }
+          })
 
           this.globalStatus = Status.Pending
 
           this.globalStatus = Status.Idle
 
-          this.bShowDecompressing = true
-          this.decompressLog = `Start Decompress Bundle`
+          this.bShowInitializeScreen = true
+          this.initLog = `Start Decompressing Bundle`
 
           resourceFile('spec_payload.zip')
 
           decompressBundle('spec_payload.zip').then(() => {
-            this.bShowDecompressing = false
+            this.bShowInitializeScreen = false
             this.globalStatus = Status.Idle
           })
             .catch((e: Error) => {
-              this.decompressLog = `Decompress Error: ${e}`
+              this.initLog = `Decompress Error: ${e}`
             })
 
           // Keep screen always on
@@ -876,7 +891,7 @@ struct Index {
             Row() {
               Text('Core Selection: ')
                 .fontWeight(FontWeight.Bold)
-              Text(this.cpuOptions[this.currentCpuSelection]?.value)
+              Text(`${(this.currentCpuSelection == -1) ? "Any" : this.cpuOptions[this.currentCpuSelection]?.value}`)
             }
 
             Row() {
@@ -950,7 +965,7 @@ struct Index {
                 .fontWeight(FontWeight.Bold)
                 .onClick(async () => {
                   await handleSaveData(this.testList, this.message,
-                    `${this.cpuOptions[this.currentCpuSelection]?.value}`, `${this.nCopies}`)
+                    `${(this.currentCpuSelection == -1) ? "Any" : this.cpuOptions[this.currentCpuSelection]?.value}`, `${this.nCopies}`)
                   this.globalStatus = Status.Idle
                   this.message = ''
                   this.bShowLoading = false

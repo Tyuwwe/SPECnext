@@ -24,7 +24,11 @@ target_link_libraries(entry PUBLIC
                         libace_napi.z.so librawfile.z.so libqos.so libhilog_ndk.z.so
                         wrap)
 
-#add_subdirectory(cpu2017)
-#add_subdirectory(vkpeak)
-#add_subdirectory(c2clat)
+add_subdirectory(cpu2017)
+add_subdirectory(vkpeak)
+add_subdirectory(c2clat)
+add_subdirectory(p7zip_16.02/CPP/7zip/CMAKE/7za)
+target_compile_options(7za PRIVATE
+    -Wno-c++11-narrowing -Wno-increment-bool -w -fvisibility=hidden -fvisibility-inlines-hidden
+    -Ofast)
 #add_subdirectory(llama.cpp)

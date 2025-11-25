@@ -29,6 +29,9 @@
 
 #define SANDBOX_PATH "/data/storage/el2/base/haps/entry/files"
 
+#define STDOUT_FILENAME "stdout.log"
+#define STDERR_FILENAME "stderr.log"
+
 #define TEST_GLOBAL -1
 
 const unsigned int LOG_PRINT_DOMAIN = 0xFF00;
@@ -46,7 +49,7 @@ extern "C" void switch_stack(int argc, const char **argv, const char **envp,
 std::thread t;
 double time_elapsed = -1;
 
-std::mutex g_mutex;
+std::mutex g_state_mtx;
 
 enum class status_t: int32_t {
     Skipped = 0,
@@ -61,12 +64,15 @@ enum class status_t: int32_t {
 };
 
 struct state_t {
+    size_t test_no = TEST_GLOBAL;
     status_t status = status_t::Skipped;
     double time = 0.;
+    uint64_t timestamp = 0;
     std::string message = "";
 };
 
-std::vector<std::unordered_map<size_t, state_t>> test_states;
+//std::unordered_map<size_t, state_t> test_states;
+std::vector<state_t> test_states;
 
 std::unordered_map<size_t, std::string> test_names{
     {500, "500.perlbench_r"},
@@ -108,7 +114,10 @@ std::unordered_map<size_t, std::string> test_names{
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
     
-    {9997, "9997.llama-server"},
+    {9994, "9994.stream"},
+    {9995, "9995.ffmpeg"},
+    {9996, "9996.p7zip"},
+    {9997, "9997.llama-bench"},
 };
 
 std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
@@ -170,43 +179,48 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     
     // INTspeed
     {600, std::vector<std::vector<const char*>>{
-            {"libperlbench_s.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1"},
-            {"libperlbench_s.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300"},
-            {"libperlbench_s.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0"},
+            {"libperlbench_s.so", "-I./lib", "checkspam.pl", "2500", "5", "25", "11", "150", "1", "1", "1", "1", nullptr},
+            {"libperlbench_s.so", "-I./lib", "diffmail.pl", "4", "800", "10", "17", "19", "300", nullptr},
+            {"libperlbench_s.so", "-I./lib", "splitmail.pl", "6400", "12", "26", "16", "100", "0", nullptr},
         }
     },
     {602, std::vector<std::vector<const char*>>{
-            {"libgcc_s.so", "gcc-pp.c", "-O5", "-fipa-pta", "-o", "gcc-pp.opts-O5_-fipa-pta.s"},
-            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=1000", "-fselective-scheduling", "-fselective-scheduling2", "-o", "gcc-pp.opts-O5_-finline-limit_1000_-fselective-scheduling_-fselective-scheduling2.s"},
-            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=24000", "-fgcse", "-fgcse-las", "-fgcse-lm", "-fgcse-sm", "-o", "gcc-pp.opts-O5_-finline-limit_24000_-fgcse_-fgcse-las_-fgcse-lm_-fgcse-sm.s"}
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-fipa-pta", "-o", "gcc-pp.opts-O5_-fipa-pta.s", nullptr},
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=1000", "-fselective-scheduling", "-fselective-scheduling2", "-o", "gcc-pp.opts-O5_-finline-limit_1000_-fselective-scheduling_-fselective-scheduling2.s", nullptr},
+            {"libgcc_s.so", "gcc-pp.c", "-O5", "-finline-limit=24000", "-fgcse", "-fgcse-las", "-fgcse-lm", "-fgcse-sm", "-o", "gcc-pp.opts-O5_-finline-limit_24000_-fgcse_-fgcse-las_-fgcse-lm_-fgcse-sm.s", nullptr}
         }
     },
-    {605, std::vector<std::vector<const char*>>{{"libmcf_s.so", "inp.in"}}},
-    {620, std::vector<std::vector<const char*>>{{"libomnetpp_s.so", "-c", "General", "-r", "0"}}},
-    {623, std::vector<std::vector<const char*>>{{{"libxalancbmk_s.so", "-v", "t5.xml", "xalanc.xsl"}}}},
+    {605, std::vector<std::vector<const char*>>{{"libmcf_s.so", "inp.in", nullptr}}},
+    {620, std::vector<std::vector<const char*>>{{"libomnetpp_s.so", "-c", "General", "-r", "0", nullptr}}},
+    {623, std::vector<std::vector<const char*>>{{{"libxalancbmk_s.so", "-v", "t5.xml", "xalanc.xsl", nullptr}}}},
     {625, std::vector<std::vector<const char*>>{
-            {"libx264_s.so", "--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.err"},
-            {"libx264_s.so", "--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", "--dumpyuv", "200", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.err"},
-            {"libx264_s.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_0500-1250_x264_s_base.mytest-m64_x264.out", "2>>", "run_0500-1250_x264_s_base.mytest-m64_x264.err"},
+            {"libx264_s.so", "--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass1.err", nullptr},
+            {"libx264_s.so", "--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", "--dumpyuv", "200", "--frames", "1000", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.out", "2>>", "run_000-1000_x264_s_base.mytest-m64_x264_pass2.err", nullptr},
+            {"libx264_s.so", "--seek", "500", "--dumpyuv", "200", "--frames", "1250", "-o", "BuckBunny_New.264", "BuckBunny.yuv", "1280x720", ">", "run_0500-1250_x264_s_base.mytest-m64_x264.out", "2>>", "run_0500-1250_x264_s_base.mytest-m64_x264.err", nullptr},
         }
     },
-    {631, std::vector<std::vector<const char*>>{{{"libdeepsjeng_s.so", "ref.txt"}}}},
-    {641, std::vector<std::vector<const char*>>{{"libleela_s.so", "ref.sgf"}}},
+    {631, std::vector<std::vector<const char*>>{{{"libdeepsjeng_s.so", "ref.txt", nullptr}}}},
+    {641, std::vector<std::vector<const char*>>{{"libleela_s.so", "ref.sgf", nullptr}}},
     {657, std::vector<std::vector<const char*>>{
-            {"libxz_s.so", "cpu2006docs.tar.xz", "6643", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "1036078272", "1111795472", "4"},
-            {"libxz_s.so", "cld.tar.xz", "1400", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "536995164", "539938872", "8"}
+            {"libxz_s.so", "cpu2006docs.tar.xz", "6643", "055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae", "1036078272", "1111795472", "4", nullptr},
+            {"libxz_s.so", "cld.tar.xz", "1400", "19cf30ae51eddcbefda78dd06014b4b96281456e078ca7c13e1c0c9e6aaea8dff3efb4ad6b0456697718cede6bd5454852652806a657bb56e07d61128434b474", "536995164", "539938872", "8", nullptr}
         }
     },
     
     // FPspeed
-    {619, std::vector<std::vector<const char*>>{{"liblbm_s.so", "2000", "reference.dat", "0", "0", "200_200_260_ldc.of"}}},
-    {638, std::vector<std::vector<const char*>>{{"libimagick_s.so", "-limit", "disk", "0", "refspeed_input.tga", "-resize", "817%", "-rotate", "-2.76", "-shave", "540x375", "-alpha", "remove", "-auto-level", "-contrast-stretch", "1x1%", "-colorspace", "Lab", "-channel", "R", "-equalize", "+channel", "-colorspace", "sRGB", "-define", "histogram:unique-colors=false", "-adaptive-blur", "0x5", "-despeckle", "-auto-gamma", "-adaptive-sharpen", "55", "-enhance", "-brightness-contrast", "10x10", "-resize", "30%", "refspeed_output.tga"}}},
-    {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220"}}},
+    {619, std::vector<std::vector<const char*>>{{"liblbm_s.so", "2000", "reference.dat", "0", "0", "200_200_260_ldc.of", nullptr}}},
+    {638, std::vector<std::vector<const char*>>{{"libimagick_s.so", "-limit", "disk", "0", "refspeed_input.tga", "-resize", "817%", "-rotate", "-2.76", "-shave", "540x375", "-alpha", "remove", "-auto-level", "-contrast-stretch", "1x1%", "-colorspace", "Lab", "-channel", "R", "-equalize", "+channel", "-colorspace", "sRGB", "-define", "histogram:unique-colors=false", "-adaptive-blur", "0x5", "-despeckle", "-auto-gamma", "-adaptive-sharpen", "55", "-enhance", "-brightness-contrast", "10x10", "-resize", "30%", "refspeed_output.tga", nullptr}}},
+    {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220", nullptr}}},
     
     // Other
-    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000"}}},
-    {9998, std::vector<std::vector<const char*>>{{"libc2clat.so"}}},
-    {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0"}}},
+    {9994, std::vector<std::vector<const char*>>{{"libstream.so", nullptr}}},
+    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=60", "-c:v", "libx264", "-crf", "15", "-preset", "veryslow", "-pix_fmt", "yuv420p", "-t", "30", "test.mp4", nullptr}}},
+//    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-codecs", nullptr}}},
+    {9996, std::vector<std::vector<const char*>>{{"lib7za.so", "b", "-m=*", nullptr}}},
+//    {9997, std::vector<std::vector<const char*>>{{"libllama-server.so", "-m", "Qwen3-0.6B-Q8_0.gguf", "--port", "8000", nullptr}}},
+    {9997, std::vector<std::vector<const char*>>{{"libllama-bench.so", "-m", "deepseek-r1-distill-llama-3b-q4_k_m.gguf", "-t", "20", nullptr}}},
+    {9998, std::vector<std::vector<const char*>>{{"libc2clat.so", nullptr}}},
+    {9999, std::vector<std::vector<const char*>>{{"libvkpeak.so", "0", nullptr}}},
 };
 
 static napi_value Add(napi_env env, napi_callback_info info)
@@ -284,19 +298,20 @@ static napi_value Clock(napi_env env, napi_callback_info info) {
   OH_LOG_INFO(LOG_APP, "Clock frequency is %{public}f", (double)freq);
   napi_value ret;
   napi_create_double(env, dfreq, &ret);
+    
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    unsigned long* pmask = (unsigned long*)&mask;
+    *pmask = -1;
+    assert(sched_setaffinity(0, sizeof(mask), &mask) == 0);
   return ret;
 }
 
 napi_threadsafe_function g_log_callback = NULL;
 
-napi_status do_log_update(int copy, int test_no) {
+napi_status do_log_update() {
     if (g_log_callback != nullptr) {
-        uint64_t data = 0;
-        int* p = (int*)(&data);
-        p[0] = copy;
-        p[1] = test_no;
-        
-        auto ret = napi_call_threadsafe_function(g_log_callback, (void*)data, napi_tsfn_blocking);
+        auto ret = napi_call_threadsafe_function(g_log_callback, (void*)nullptr, napi_tsfn_blocking);
         assert(ret == napi_ok);
         return ret;
     }
@@ -309,36 +324,46 @@ extern "C" {
     void nlog(const char* log) __attribute__((visibility("default")));
 }
 
-void nlog(const char* log) {
-    test_states[0][TEST_GLOBAL].status = status_t::Message;
-    test_states[0][TEST_GLOBAL].message = log;
-    do_log_update(0, TEST_GLOBAL);
+void push_state(int test_no, status_t status, std::string message, double time = 0) {
+    std::unique_lock<std::mutex> lk(g_state_mtx);
+    auto& state = test_states.emplace_back();
+    
+    state.test_no = test_no;
+    state.status = status;
+    state.message = message;
+    state.timestamp = std::chrono::system_clock::now().time_since_epoch().count();
+    state.time = time;
+}
+
+void nlog(const char *log) {
+    push_state(TEST_GLOBAL, status_t::Message, log);
+    do_log_update();
 }
 
 void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
-    int* pdata = reinterpret_cast<int*>(&data);
-    int copy = pdata[0];
-    int testNo = pdata[1];
+    std::unique_lock<std::mutex> lk(g_state_mtx);
     
-    assert(testNo == TEST_GLOBAL || (testNo >= 500 && testNo <= 700) || (testNo > 9000 && testNo < 10000));
-    assert(copy >= 0 && copy <= 100);
-
-    auto name = test_names[testNo];
-    auto status = test_states[copy][testNo].status;
-    auto time = test_states[copy][testNo].time;
-    auto errormsg = test_states[copy][testNo].message;
-
-    int argc = 4;
-    napi_value args[4] = {nullptr};
-
-    napi_create_int32(env, (int)status, &args[0]);
-    napi_create_int32(env, testNo, &args[1]);
-    napi_create_double(env, time, &args[2]);
-    g_uimsg = errormsg;
-
-    napi_create_string_utf8(env, g_uimsg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
-    napi_value result = nullptr;
-    napi_call_function(env, nullptr, /*func=*/js_fun, argc, args, &result);
+    for (auto& state: test_states) {
+        auto testNo = state.test_no;
+        auto name = test_names[state.test_no];
+        auto status = state.status;
+        auto time = state.time;
+        auto msg = state.message;
+        auto timestamp = state.timestamp;
+    
+        int argc = 5;
+        napi_value args[5] = {nullptr};
+    
+        napi_create_int32(env, (int)status, &args[0]);
+        napi_create_int32(env, testNo, &args[1]);
+        napi_create_double(env, time, &args[2]);
+        napi_create_string_utf8(env, msg.c_str(), NAPI_AUTO_LENGTH, &args[3]);
+        napi_create_int64(env, timestamp, &args[4]);
+        
+        napi_value result = nullptr;
+        napi_call_function(env, nullptr, /*func=*/js_fun, argc, args, &result);
+    }
+    test_states.clear();
 }
 
 
@@ -379,26 +404,26 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     int ncopies = 1;
     napi_get_value_int32(env, nvalue_ncopies, &ncopies);
     
-    test_states.resize(1);
-    test_states[0][TEST_GLOBAL];
-    if (ncopies < 1) {
-        test_states[0][TEST_GLOBAL].status = status_t::Error;
-        test_states[0][TEST_GLOBAL].message = "Error: ncopies < 1";
-        do_log_update(0,TEST_GLOBAL);
-        return ret;
-    } else {
-        test_states.resize(ncopies);
-    }
+//    test_states.resize(1);
+//    test_states[0][TEST_GLOBAL];
+//    if (ncopies < 1) {
+//        test_states[0][TEST_GLOBAL].status = status_t::Error;
+//        test_states[0][TEST_GLOBAL].message = "Error: ncopies < 1";
+//        do_log_update(0,TEST_GLOBAL);
+//        return ret;
+//    } else {
+//        test_states.resize(ncopies);
+//    }
     
-    // Create states beforehand
-    // avoiding rehash in multithreaded environment
-    for (int nc; nc < ncopies; ++nc) {
-        auto& state = test_states[nc];
-        state[TEST_GLOBAL];
-        for (auto& test: test_names) {
-            state[test.first];
-        }
-    }
+//    // Create states beforehand
+//    // avoiding rehash in multithreaded environment
+//    for (int nc; nc < ncopies; ++nc) {
+//        auto& state = test_states[nc];
+//        state[TEST_GLOBAL];
+//        for (auto& test: test_names) {
+//            state[test.first];
+//        }
+//    }
 
     /* Setup native-ts comm */
     napi_value resource_name = nullptr;
@@ -410,29 +435,37 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     if (t.joinable())
         t.join();
     t = std::thread([test_list, cpuidx, ncopies] {
-        std::string cpuCountStr = std::to_string(getCpuCount());
-        if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
-            test_states[0][TEST_GLOBAL].status = status_t::Error;
-            test_states[0][TEST_GLOBAL].message = "Set OMP_NUM_THREADS failed";
-            do_log_update(0, TEST_GLOBAL);
-            return -1;
-        } else {
-            std::string msg = "Set OMP_NUM_THREADS = " + cpuCountStr;
-            test_states[0][TEST_GLOBAL].status = status_t::Error;
-            test_states[0][TEST_GLOBAL].message = msg;
-            do_log_update(0, TEST_GLOBAL);
-        }
+//        std::string cpuCountStr = std::to_string(getCpuCount());
+//        if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
+//            push_state(TEST_GLOBAL, status_t::Error, "Set OMP_NUM_THREADS failed");
+//            do_log_update();
+//            return -1;
+//        } else {
+//            push_state(TEST_GLOBAL, status_t::Message, "Set OMP_NUM_THREADS = " + cpuCountStr);
+//            do_log_update();
+//        }
 
-        test_states[0][TEST_GLOBAL].status = status_t::Initializing;
-        do_log_update(0, TEST_GLOBAL);
-        int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
-        
+        push_state(TEST_GLOBAL, status_t::Initializing, "");
+        do_log_update();
+        int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_DEADLINE_REQUEST);
+
         if (rc != 0) {
-            test_states[0][TEST_GLOBAL].status = status_t::Error;
-            test_states[0][TEST_GLOBAL].message = "Set thread QoS failed";
-            do_log_update(0, TEST_GLOBAL);
+            push_state(TEST_GLOBAL, status_t::Error, "Set thread QoS failed");
+            do_log_update();
             return rc;
         }
+
+        if (cpuidx >= 0) {
+            cpu_set_t mask;
+            CPU_ZERO(&mask);
+            CPU_SET(cpuidx, &mask);
+            if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
+                push_state(TEST_GLOBAL, status_t::Error, "Set thread affinity failed");
+                do_log_update();
+                return -1;
+            }
+        }
+
         
         // Prepare new stack
         const char *envp[1] = {NULL};
@@ -444,23 +477,44 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
         OH_LOG_INFO(LOG_APP, "Allocated stack at %{public}lx-%{public}lx", stack, stack_top);
         
         for (const auto test_no: test_list) {
-            test_states[0][test_no].status = status_t::Initializing;
-            do_log_update(0, test_no);
+            push_state(test_no, status_t::Initializing, "");
+            do_log_update();
             
             if (test_cmdline.find(test_no) == test_cmdline.end()){
-                test_states[0][test_no].status = status_t::Error;
-                test_states[0][test_no].message = "cannot find cmdlist";
-                do_log_update(0, test_no);
+                push_state(test_no, status_t::Error, "cannot find cmdlist");
+                do_log_update();
                 continue;
             }
+        
+            const std::string testpath = SANDBOX_PATH "/run/0/" + test_names[test_no];
+            int ret_chdir = chdir(testpath.c_str());
+            push_state(test_no, status_t::Message, "chdir to: " + testpath);
+            do_log_update();
+            if (ret_chdir != 0) {
+                push_state(test_no, status_t::Error, "chdir failed");
+                do_log_update();
+                continue;
+            }
+                
+//            std::string path = std::string(SANDBOX_PATH) + '/' + test_names[test_no];
+//            int ret_chdir = chdir(path.c_str());
+//            push_state(test_no, status_t::Error, "chdir to: " + path);
+//            do_log_update();
+//            if (ret_chdir != 0) {
+//                push_state(test_no, status_t::Error, "chdir failed: " + std::to_string(errno));
+//                do_log_update();
+//                continue;
+//            }
+            
+            FILE *fstdout = freopen(STDOUT_FILENAME, "w+", stdout);
+            FILE *fstderr = freopen(STDERR_FILENAME, "w+", stderr);
                 
             auto& cmds = test_cmdline[test_no];
             const char* libname = cmds[0][0];
             void* plib = dlopen(libname, RTLD_LAZY | RTLD_GLOBAL);
             if (plib == NULL) {
-                test_states[0][test_no].status = status_t::Error;
-                test_states[0][test_no].message = std::string("cannot open lib: ") + dlerror();
-                do_log_update(0, test_no);
+                push_state(test_no, status_t::Error, std::string("cannot open lib: ") + dlerror());
+                do_log_update();
                 continue;
             }
             
@@ -469,9 +523,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 //            if (!f_main)
 //                f_main = (specmain_ft_t)dlsym(plib, "_QQmain");
             if (f_main == NULL) {
-                test_states[0][test_no].status = status_t::Error;
-                test_states[0][test_no].message = std::string("cannot get main func: ") + dlerror();
-                do_log_update(0, test_no);
+                push_state(test_no, status_t::Error, std::string("cannot get main func: ") + dlerror());
+                do_log_update();
                 continue;
             }
                 
@@ -480,15 +533,10 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
             double time = 0;
             int ret = 0;
             
-            const std::string testpath = SANDBOX_PATH "/run/0/" + test_names[test_no];
-            if (chdir(testpath.c_str()) != 0) {
-                test_states[0][test_no].status = status_t::Error;
-                test_states[0][test_no].message = "chdir failed";
-                do_log_update(0, test_no);
-                continue;
-            }
-            
             for (int i = 0; i < cmds.size(); ++i) {
+                push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
+                do_log_update();
+                
                 plib = dlopen(libname, RTLD_NOW);
                 f_main = (specmain_ft_t)dlsym(plib, "main");
 //                if (!f_main)
@@ -496,6 +544,16 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 specinit_t f_init = (specinit_t)dlsym(plib, "__init");
                 specfinalize_t f_finalize = (specfinalize_t)dlsym(plib, "__freelist");
                 const char** argv = cmds[i].data();
+                
+                std::string c;
+                for (auto cmd: cmds[i]) {
+                    if (cmd == nullptr)
+                        break;
+                    c += cmd;
+                    c += ' ';
+                }
+                push_state(test_no, status_t::Message, "Running command: \n" + c);
+                do_log_update();
                 
                 // Prepares for (possible) IO redirection
                 int argc = cmds[i].size() - 1;
@@ -507,6 +565,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                         // i+2 - nullptr
                         freopen(argv[i + 1], "r", stdin);
                         has_redirection = true;
+                        push_state(test_no, status_t::Message, std::string("Redirecting input from: ") + argv[i + 1] + std::string("\n"));
+                        do_log_update();
                     }
                 }
                 if (has_redirection)
@@ -516,9 +576,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 if (f_init)
                     f_init();
                 
-                test_states[0][test_no].status = status_t::Running;
-                test_states[0][test_no].message = "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]";
-                do_log_update(0, test_no);
+                push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
+                do_log_update();
                 
                 auto begin = std::chrono::steady_clock::now();
 //                ret = f_main(argc, argv, envp);
@@ -530,9 +589,14 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                         CPU_ZERO(&mask);
                         CPU_SET(cpuidx, &mask);
                         if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
-//                            test_states[0][TEST_GLOBAL].status = status_t::Error;
-//                            test_states[0][TEST_GLOBAL].message = "Set thread affinity failed";
-//                            do_log_update(0, TEST_GLOBAL);
+                            return -1;
+                        }
+                    } else {
+                        cpu_set_t mask;
+                        CPU_ZERO(&mask);
+                        unsigned long* pmask = (unsigned long*)&mask;
+                        *pmask = -1;
+                        if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
                             return -1;
                         }
                     }
@@ -563,10 +627,41 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     f_finalize();
                 dlclose(plib); // detach lib to release memory leak in some tests (502?)
                 
+                // Print stdout and stderr
+                if (test_no > 700) // should be "other" tests
+                {
+                    {
+                        if (fstdout) {
+                            fflush(fstdout);
+                            fseek(fstdout, 0, SEEK_END);
+                            auto outsize = ftell(fstdout);
+                            fseek(fstdout, 0, SEEK_SET);
+                            std::string str_stdout(outsize + 1, '\0');
+                            fread(str_stdout.data(), 1, outsize, fstdout);
+                            push_state(TEST_GLOBAL, status_t::Message, "stdout: \n" + str_stdout);
+                            do_log_update();
+                            fclose(fstdout);
+                        }
+                    }
+    
+                    {
+                        if (fstderr) {
+                            fflush(fstdout);
+                            fseek(fstderr, 0, SEEK_END);
+                            auto errsize = ftell(fstderr);
+                            fseek(fstderr, 0, SEEK_SET);
+                            std::string str_stderr(errsize + 1, '\0');
+                            fread(str_stderr.data(), 1, errsize, fstderr);
+                            push_state(TEST_GLOBAL, status_t::Message, "stderr: \n" + str_stderr);
+                            do_log_update();
+                            fclose(fstderr);
+                        }
+                    }
+                }
+                
                 if (ret != 0) {
-                    test_states[0][test_no].status = status_t::Error;
-                    test_states[0][test_no].message = "main func returned: " + std::to_string(ret);
-                    do_log_update(0, test_no);
+                    push_state(test_no, status_t::Error, "main func returned: " + std::to_string(ret));
+                    do_log_update();
                     break;
                 }
             }
@@ -574,13 +669,14 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 continue;
             }
             
-            test_states[0][test_no].status = status_t::Completed;
-            test_states[0][test_no].time = time;
-            do_log_update(0, test_no);
+            push_state(test_no, status_t::Completed, "", time);
+            do_log_update();
+            
+//            std::this_thread::sleep_for(std::chrono::seconds(30));
         }
 
-        test_states[0][TEST_GLOBAL].status = status_t::Completed;
-        do_log_update(0, TEST_GLOBAL);
+        push_state(TEST_GLOBAL, status_t::Completed, "");
+        do_log_update();
         
         free(stack);
         
