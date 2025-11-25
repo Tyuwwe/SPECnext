@@ -7,11 +7,11 @@
         "material": {
           "certpath": "C:\\Users\\oct\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001AD925096B16721BD4D37A852BE580C20EA6574EDBE3861573DC51B06F7B8BC9EFDDEBEE93998D",
+          "keyPassword": "0000001B7F776B35B67F41B53966A3898F04A48FEB3521E883566B21094F13E1F0203E1D87DF822F121185",
           "profile": "C:\\Users\\oct\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\oct\\.ohos\\config\\default_SPECnext_y1yLmwJEsrFXN90zCWjEE5ZOJ_o_L2NeByvyAyUsVk0=.p12",
-          "storePassword": "0000001AAB122D03245147CCDD82DAC486BB6340F089F3F3E6B2AAE42B43DF0D5F8B6F2BADF6BD141E7E"
+          "storePassword": "0000001BBF216377B079DB104EB59EC6A5F732D803C7860FED32DAB50A7FAE004894296C7ABE8C19D43ED6"
         }
       }
     ],

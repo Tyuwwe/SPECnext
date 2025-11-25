@@ -2,6 +2,7 @@ import deviceInfo from "@ohos.deviceInfo"
 import common from '@ohos.app.ability.common'
 import Want from '@ohos.app.ability.Want'
 import { fileIo as fs } from '@kit.CoreFileKit';
+import { vibrator } from '@kit.SensorServiceKit';
 
 const clearAllHistoryFiles = async () => {
   const path = `${getContext().filesDir}/benchmark_history`
@@ -20,12 +21,39 @@ export struct settings {
   @StorageLink('debugMode') debugMode: boolean | undefined = AppStorage.get('debugMode');
   pageInfo: NavPathStack = new NavPathStack()
 
+  @Builder
+  deleteConfirm() {
+    Column({ space: 8 }) {
+      Row({ space: 4 }) {
+        SymbolGlyph($r('sys.symbol.exclamationmark_triangle_fill'))
+        Text('Delete all records?')
+      }
+      .width(200)
+      .justifyContent(FlexAlign.Start)
+      Row() {
+        Button('Yes')
+          .width('49%')
+          .controlSize(ControlSize.SMALL)
+          .onClick(() => {
+            clearAllHistoryFiles()
+          })
+        Button('No')
+          .controlSize(ControlSize.SMALL)
+          .width('49%')
+          .role(ButtonRole.ERROR)
+      }
+      .width(200)
+      .justifyContent(FlexAlign.SpaceBetween)
+    }
+    .padding(12)
+  }
+
   build() {
     NavDestination() {
       Column() {
         Stack() {
           Row()
-            .backgroundColor('rgb(245, 245, 245)')
+            .backgroundColor($r('sys.color.background_secondary'))
             .width('100%')
             .height(300)
             .borderRadius({
@@ -36,6 +64,7 @@ export struct settings {
             Image($r('app.media.ic_public_devices_phone'))
               .size({ width: '25%', height: undefined })
               .autoResize(true)
+              .fillColor($r('sys.color.font_primary'))
             Text(`${deviceInfo.marketName}`)
               .fontSize(24)
               .fontWeight(FontWeight.Bolder)
@@ -73,6 +102,15 @@ export struct settings {
                 type: ToggleType.Switch,
                 isOn: $$this.debugMode
               })
+                .onClick(() => {
+                  vibrator.startVibration({
+                    type: 'preset',
+                    effectId: 'haptic.notice.success',
+                    count: 1,
+                  }, {
+                    usage: 'notification'
+                  })
+                })
                 .height(24)
                 .width(48)
             }
@@ -86,14 +124,13 @@ export struct settings {
                 .buttonStyle(ButtonStyleMode.NORMAL)
                 .type(ButtonType.Capsule)
                 .role(ButtonRole.NORMAL)
+                .enabled(false)
             }
             .width('100%')
 
             Row() {
               Button('Clear Benchmark History')
-                .onClick(() => {
-                  clearAllHistoryFiles()
-                })
+                .bindMenu(this.deleteConfirm)
                 .width('100%')
                 .buttonStyle(ButtonStyleMode.NORMAL)
                 .type(ButtonType.Capsule)
@@ -108,10 +145,10 @@ export struct settings {
         Row({ space: 8 }) {
           Text('Contributors:')
             .fontSize(12)
-            .fontColor('rgb(200, 200, 200)')
+            .fontColor($r('sys.color.font_secondary'))
           Text('@Swung0x48')
             .fontSize(12)
-            .fontColor('rgb(200, 200, 200)')
+            .fontColor($r('sys.color.font_secondary'))
             .onClick(() => {
               try {
                 let want:Want = {
@@ -128,7 +165,7 @@ export struct settings {
             })
           Text('@Tyuwwe')
             .fontSize(12)
-            .fontColor('rgb(200, 200, 200)')
+            .fontColor($r('sys.color.font_secondary'))
             .onClick(() => {
               try {
                 let want:Want = {

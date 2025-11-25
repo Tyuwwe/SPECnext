@@ -1,5 +1,8 @@
 import { JSON, util } from '@kit.ArkTS';
 import { fileIo as fs, ListFileOptions } from '@kit.CoreFileKit';
+import { fileUri } from '@kit.CoreFileKit';
+import { Want, common, wantConstant } from '@kit.AbilityKit';
+import { text } from '@kit.ArkGraphics2D'
 
 enum TestType {
   INTrate,
@@ -32,6 +35,7 @@ interface benchmarkSaveType {
 }
 
 interface benchHistoryType {
+  filename?: string,
   benchmark: benchmarkSaveType[],
   date: string,
   message: string,
@@ -39,8 +43,11 @@ interface benchHistoryType {
   nCopies: string
 }
 
-const readHistoryData = async (filename: string) => {
-  const path = `${getContext().filesDir}/benchmark_history/${filename}`
+let fontCollection = text.FontCollection.getGlobalInstance()
+fontCollection.loadFontSync('JetBrainsMono',$rawfile('JetBrainsMono-Regular.ttf'))
+
+const readHistoryData = async (filepath: string): Promise<benchHistoryType> => {
+  const path = `${getContext().filesDir}/benchmark_history/${filepath}`
   const file = await fs.open(path, fs.OpenMode.READ_ONLY)
 
   const stat = await fs.stat(path);
@@ -52,7 +59,16 @@ const readHistoryData = async (filename: string) => {
   const decoder = new util.TextDecoder('utf-8');
   const text = decoder.decode(new Uint8Array(buf));
 
-  return JSON.parse(text) as benchHistoryType
+  const fileData: benchHistoryType = JSON.parse(text) as benchHistoryType
+
+  return {
+    filename: filepath,
+    benchmark: fileData.benchmark,
+    date: fileData.date,
+    message: fileData.message,
+    coreSelect: fileData.coreSelect,
+    nCopies: fileData.nCopies
+  }
 }
 
 const listBenchmarkDir = async (): Promise<string[]> => {
@@ -77,6 +93,7 @@ export struct history {
   @State benchmarkList: Array<benchHistoryType> = []
   @State bShowDetail: boolean = false
   @State currentShowBenchmark: benchHistoryType = {
+    filename: '',
     benchmark: [],
     message: '',
     date: '',
@@ -84,10 +101,96 @@ export struct history {
     nCopies: ''
   }
 
+  handleLoadPage = async () => {
+    let benchmarkDirs = await listBenchmarkDir()
+
+    const readPromises: Promise<benchHistoryType>[] = benchmarkDirs.map((dir: string): Promise<benchHistoryType> => readHistoryData(dir))
+
+    let benchmarkDataList = await Promise.all(readPromises)
+
+    benchmarkDataList.sort((a: benchHistoryType, b: benchHistoryType): number => {
+      let date_a = new Date(a.date)
+      let date_b = new Date(b.date)
+
+      return date_b.getTime() - date_a.getTime()
+    })
+
+    this.benchmarkList = benchmarkDataList
+  }
+
+  handleDeleteResult = async () => {
+    this.bShowDetail = false
+
+    let filePath = `${getContext().filesDir}/benchmark_history/${this.currentShowBenchmark.filename}`
+
+    await fs.unlink(filePath)
+
+    await this.handleLoadPage()
+  }
+
+  handleShareResult = () => {
+    let filePath = `${getContext().filesDir}/benchmark_history/${this.currentShowBenchmark.filename}`
+
+    let uri = fileUri.getUriFromPath(filePath)
+
+    let want: Want = {
+      action: 'ohos.want.action.viewData',
+      uri: uri,
+      type: 'general.plain-text',
+      flags: wantConstant.Flags.FLAG_AUTH_READ_URI_PERMISSION
+    }
+
+    let context = getContext(this) as common.UIAbilityContext;
+    context.startAbility(want)
+  }
+
+  @Builder
+  deleteConfirm() {
+    Column({ space: 8 }) {
+      Row({ space: 4 }) {
+        SymbolGlyph($r('sys.symbol.exclamationmark_triangle_fill'))
+        Text('Delete this record?')
+      }
+      .width(200)
+      .justifyContent(FlexAlign.Start)
+      Row() {
+        Button('Yes')
+          .width('49%')
+          .controlSize(ControlSize.SMALL)
+          .onClick(async () => {
+            await this.handleDeleteResult()
+          })
+        Button('No')
+          .controlSize(ControlSize.SMALL)
+          .width('49%')
+          .role(ButtonRole.ERROR)
+      }
+      .width(200)
+      .justifyContent(FlexAlign.SpaceBetween)
+    }
+    .padding(12)
+  }
+
   @Builder
   modalDetail() {
     Scroll() {
       Column({ space: 12 }) {
+        Column({ space: 8 }) {
+          Button('Export')
+            .width('100%')
+            .buttonStyle(ButtonStyleMode.NORMAL)
+            .onClick(() => {
+              this.handleShareResult()
+            })
+          Button('Delete')
+            .width('100%')
+            .buttonStyle(ButtonStyleMode.NORMAL)
+            .role(ButtonRole.ERROR)
+            .bindMenu(this.deleteConfirm)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
         Column() {
           Text('Core Selection')
             .fontSize(20)
@@ -113,6 +216,7 @@ export struct history {
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_emphasize'))
+            .margin({ bottom: 4 })
           Column({ space: 4 }) {
             ForEach(this.currentShowBenchmark.benchmark, (item: benchmarkSaveType, index) => {
               Row() {
@@ -142,6 +246,8 @@ export struct history {
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_emphasize'))
           Text(this.currentShowBenchmark.message)
+            .fontFamily('JetBrainsMono')
+            .fontSize(14)
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
@@ -220,7 +326,7 @@ export struct history {
             .width('90%')
             .borderRadius(24)
             .clip(true)
-            .backgroundColor($r('sys.color.background_secondary'))
+            .backgroundColor($r('app.color.history_item_background'))
           })
         }
         .margin({ top: 12 })
@@ -238,20 +344,7 @@ export struct history {
     .onReady(async (context: NavDestinationContext) => {
       this.pageInfo = context.pathStack
 
-      let benchmarkDirs = await listBenchmarkDir()
-
-      const readPromises: Promise<benchHistoryType>[] = benchmarkDirs.map((dir: string): Promise<benchHistoryType> => readHistoryData(dir))
-
-      let benchmarkDataList = await Promise.all(readPromises)
-
-      benchmarkDataList.sort((a: benchHistoryType, b: benchHistoryType): number => {
-        let date_a = new Date(a.date)
-        let date_b = new Date(b.date)
-
-        return date_b.getTime() - date_a.getTime()
-      })
-
-      this.benchmarkList = benchmarkDataList
+      await this.handleLoadPage()
     })
     .title(
       {
