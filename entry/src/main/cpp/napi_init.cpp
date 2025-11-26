@@ -35,6 +35,10 @@
 
 #define TEST_GLOBAL -1
 
+#define SLEEP_DURATION 30
+#define WORK_DURATION 20
+#define CYCLE_DURATION (SLEEP_DURATION + WORK_DURATION)
+
 const unsigned int LOG_PRINT_DOMAIN = 0xFF00;
 
 typedef int (* specmain_t)(int argc, const char *argv[]);
@@ -261,6 +265,14 @@ int getCpuCount() {
     return count;
 }
 
+int g_cpuidx = -1;
+void sighand(int signo)
+{
+  if (signo == SIGALRM) {
+        usleep(SLEEP_DURATION * 1e6);
+  }
+}
+
 static napi_value QueryCpuCount(napi_env env, napi_callback_info info)
 {
     napi_value nret;
@@ -380,6 +392,11 @@ void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
     test_states.clear();
 }
 
+static double GetTimeDelta(struct rusage* begin, struct rusage* end) {
+    auto begin_time = (double)begin->ru_utime.tv_sec + begin->ru_utime.tv_usec * 1e6;
+    auto end_time = (double)end->ru_utime.tv_sec + end->ru_utime.tv_usec * 1e6;
+    return end_time - begin_time;
+}
 
 // [test_list, cpu, ncopies, callback_func]
 // Should be derived from ArkTS side
@@ -458,7 +475,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 //            push_state(TEST_GLOBAL, status_t::Message, "Set OMP_NUM_THREADS = " + cpuCountStr);
 //            do_log_update();
 //        }
-
+        g_cpuidx = cpuidx;
+        
         push_state(TEST_GLOBAL, status_t::Initializing, "");
         do_log_update();
         int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
@@ -595,8 +613,10 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 
                 push_state(TEST_GLOBAL, status_t::Running, "");
                 do_log_update();
+//                auto begin = std::chrono::steady_clock::now();
                 
-                auto begin = std::chrono::steady_clock::now();
+                struct rusage begin_usage;
+                assert(getrusage(RUSAGE_CHILDREN, &begin_usage) == 0);
 //                ret = f_main(argc, argv, envp);
                 pid_t pid = fork();
                 if (pid == 0) {
@@ -618,6 +638,18 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                         }
                     }
                     
+                    // register signal handler
+                    sigset_t mask;
+                    sigfillset(&mask); /* unMask all allowed signals */
+                    pthread_sigmask(SIG_UNBLOCK, &mask, NULL);
+                
+                    struct sigaction actions;
+                    memset(&actions, 0, sizeof(actions));
+                    sigemptyset(&actions.sa_mask);
+                    actions.sa_flags = 0;
+                    actions.sa_handler = sighand;
+                    sigaction(SIGALRM, &actions, NULL);
+                    
                     // equivalent to:
                     // int status = main(1 + args_length, real_argv.data(), envp);
                     // exit(status);
@@ -626,17 +658,38 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 } else {
                     // in parent process
                     assert(pid != -1);
-                    int wstatus;
-                    waitpid(pid, &wstatus, 0);
-                    if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != 0) {
-                      // failed
-                      ret = -1;
+                    // pid is now child process's pid
+                    
+                    // Wait for 1-period of work
+                    usleep(WORK_DURATION * 1e6);
+                    
+                    while (true) {
+                        int wstatus;
+                        int child_pid = waitpid(pid, &wstatus, WNOHANG);
+                        if (child_pid == 0) {
+                            // child not yet terminated
+                            // should send signal
+                            kill(pid, SIGALRM);
+                            // Wait for next cycle
+                            usleep(CYCLE_DURATION * 1e6);
+                        }
+                        else if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != 0) {
+                            // failed
+                            ret = -1;
+                            break;
+                        } else {
+                            // child properly terminated
+                            break;
+                        }
                     }
                 }
                 
-                auto end = std::chrono::steady_clock::now();
+//                auto end = std::chrono::steady_clock::now();
+                struct rusage end_usage;
+                assert(getrusage(RUSAGE_CHILDREN, &end_usage) == 0);
                 
-                double laptime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1e6;
+//                double laptime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1e6;
+                double laptime = GetTimeDelta(&begin_usage, &end_usage);
                 time += laptime;
                 
                 // Free reference-counted memory
@@ -702,7 +755,6 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 
 //     if (t.joinable())
 //         t.join();
-
     return ret;
 }
 
