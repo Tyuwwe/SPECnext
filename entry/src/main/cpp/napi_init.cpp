@@ -233,19 +233,32 @@ static napi_value Add(napi_env env, napi_callback_info info)
 }
 
 int getCpuCount() {
-    int count = -1;
+    return std::thread::hardware_concurrency();
     
-    cpu_set_t set;
-    CPU_ZERO(&set);
-    if (sched_getaffinity(0, sizeof(set), &set) != -1) {
-        for (int i = 0; i < CPU_SETSIZE; ++i) {
-            if (CPU_ISSET(i, &set) && count < i) {
-                count = i;
-            }
-        }
-    }
-    count++;
-    return count;
+//    int count = -1;
+//    
+//    // reset cpu affinity mask
+//    cpu_set_t mask;
+//    CPU_ZERO(&mask);
+//    unsigned long* pmask = (unsigned long*)&mask;
+//    *pmask = -1;
+//    if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
+//        return -1;
+//    }
+//    
+//    cpu_set_t set;
+//    CPU_ZERO(&set);
+//    if (sched_getaffinity(0, sizeof(set), &set) != -1) {
+//        for (int i = 0; i < CPU_SETSIZE; ++i) {
+//            if (CPU_ISSET(i, &set) && count < i) {
+//                count = i;
+//            }
+//        }
+//    }
+//    count++;
+//    
+//    
+//    return count;
 }
 
 static napi_value QueryCpuCount(napi_env env, napi_callback_info info)
@@ -448,7 +461,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 
         push_state(TEST_GLOBAL, status_t::Initializing, "");
         do_log_update();
-        int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_DEADLINE_REQUEST);
+        int rc = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
 
         if (rc != 0) {
             push_state(TEST_GLOBAL, status_t::Error, "Set thread QoS failed");
