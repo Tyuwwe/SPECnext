@@ -593,7 +593,8 @@ struct Index {
     }
 
     let idx = this.testList.findIndex(e => e.id == test);
-    this.testList[idx].status = newStatus
+    if (newStatus != Status.Message)
+      this.testList[idx].status = newStatus
     this.testList[idx].errmsg = msg
 
     switch (newStatus) {
