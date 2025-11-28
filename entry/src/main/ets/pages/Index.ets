@@ -1004,7 +1004,7 @@ struct Index {
         // .backdropBlur(24)
         .padding('24px')
       }
-      .bindContentCover($$this.bShowDecompressing, this.modalDecompressing, {
+      .bindContentCover($$this.bShowInitializeScreen, this.modalDecompressing, {
         backgroundColor: $r('app.color.modal_transparent_background'),
         modalTransition: ModalTransition.NONE
       })
