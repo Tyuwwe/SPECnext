@@ -19,6 +19,7 @@ export struct settings {
   @State barStyle: BarStyle = BarStyle.STANDARD;
   @StorageLink('nCopies') nCopies: number | undefined = AppStorage.get('nCopies');
   @StorageLink('debugMode') debugMode: boolean | undefined = AppStorage.get('debugMode');
+  @StorageLink('splitRun') splitRun: boolean | undefined = AppStorage.get('splitRun');
   pageInfo: NavPathStack = new NavPathStack()
 
   @Builder
@@ -91,6 +92,28 @@ export struct settings {
                     this.nCopies = 1
                   }
                 })
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+            .justifyContent(FlexAlign.SpaceBetween)
+
+            Row() {
+              Text('Split Run Mode')
+              Toggle({
+                type: ToggleType.Switch,
+                isOn: $$this.splitRun
+              })
+                .onClick(() => {
+                  vibrator.startVibration({
+                    type: 'preset',
+                    effectId: 'haptic.notice.success',
+                    count: 1,
+                  }, {
+                    usage: 'notification'
+                  })
+                })
+                .height(24)
+                .width(48)
             }
             .width('100%')
             .alignItems(VerticalAlign.Center)
