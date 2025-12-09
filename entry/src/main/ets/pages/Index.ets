@@ -61,7 +61,7 @@ async function decompressBundle(bundleRelPath: string) {
 
 const TEST_GLOBAL = -1
 
-async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: number, func: Function) {
+async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: number, doSplit: boolean, func: Function) {
   // Show preflight message
   let msg =
     "Preflight check:\n" +
@@ -130,7 +130,7 @@ async function runTestList(testList: Array<TestItem>, cpu: number, ncopies: numb
   func(Status.Message, TEST_GLOBAL, 0, `Initiating tests...`)
   // Run tests
   return new Promise<number>((resolve, reject) => {
-    let ret = testNapi.runTests(testList.map(test => test.id), cpu, ncopies, func);
+    let ret = testNapi.runTests(testList.map(test => test.id), cpu, ncopies, doSplit, func);
     if (ret == 0) {
       resolve(0);
     } else {
@@ -975,7 +975,7 @@ struct Index {
 
                   let testsToRun = this.testList.filter(item => item.checked)
                   // .map(item => item.id)
-                  runTestList(testsToRun, this.currentCpuSelection, this.nCopies, this.onStateChange)
+                  runTestList(testsToRun, this.currentCpuSelection, this.nCopies, this.splitRun, this.onStateChange)
                     .then((res) => {
                       this.globalStatus = Status.Completed
                     })

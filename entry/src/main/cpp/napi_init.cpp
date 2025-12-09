@@ -119,7 +119,7 @@ std::unordered_map<size_t, std::string> test_names{
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
     
-    {9993, "9992.latency2"},
+    {9992, "9992.latency2"},
     {9993, "9993.cuprobe"},
     {9994, "9994.stream"},
     {9995, "9995.ffmpeg"},
@@ -418,9 +418,9 @@ static double GetTimeDelta(struct rusage* begin, struct rusage* end) {
     return end_time - begin_time;
 }
 
-// [test_list, cpu, ncopies, callback_func]
+// [test_list, cpu, ncopies, do_run_split, callback_func]
 // Should be derived from ArkTS side
-#define ARGC 4
+#define ARGC 5
 static napi_value RunTests(napi_env env, napi_callback_info info) {
     napi_value ret;
     napi_create_double(env, 0, &ret);
@@ -431,7 +431,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     napi_value& nvalue_test_list = args[0];
     napi_value& nvalue_cpu = args[1];
     napi_value& nvalue_ncopies = args[2];
-    napi_value& nvalue_callback = args[3];
+    napi_value& nvalue_do_run_split = args[3];
+    napi_value& nvalue_callback = args[4];
 
     napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
     
@@ -454,6 +455,9 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     
     int ncopies = 1;
     napi_get_value_int32(env, nvalue_ncopies, &ncopies);
+    
+    bool do_run_split = 1;
+    napi_get_value_bool(env, nvalue_do_run_split, &do_run_split);
     
 //    test_states.resize(1);
 //    test_states[0][TEST_GLOBAL];
@@ -485,7 +489,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
     /* Start tests in a child thread */
     if (t.joinable())
         t.join();
-    t = std::thread([test_list, cpuidx, ncopies] {
+    t = std::thread([test_list, cpuidx, ncopies, do_run_split] {
 //        std::string cpuCountStr = std::to_string(getCpuCount());
 //        if (setenv("OMP_NUM_THREADS", cpuCountStr.c_str(), 1) < 0) {
 //            push_state(TEST_GLOBAL, status_t::Error, "Set OMP_NUM_THREADS failed");
@@ -692,9 +696,7 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     
                     while (true) {
                         int wstatus;
-                        int child_pid = waitpid(pid, &wstatus,
-                            //0);
-                        WNOHANG);
+                        int child_pid = waitpid(pid, &wstatus, do_run_split ? WNOHANG : 0);
                         if (child_pid == 0) {
                             // child not yet terminated
                             // should send signal
