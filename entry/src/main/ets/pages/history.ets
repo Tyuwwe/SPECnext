@@ -3,6 +3,8 @@ import { fileIo as fs, ListFileOptions } from '@kit.CoreFileKit';
 import { fileUri } from '@kit.CoreFileKit';
 import { Want, common, wantConstant } from '@kit.AbilityKit';
 import { text } from '@kit.ArkGraphics2D'
+import { systemShare } from '@kit.ShareKit';
+import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 
 enum TestType {
   INTrate,
@@ -128,7 +130,7 @@ export struct history {
     await this.handleLoadPage()
   }
 
-  handleShareResult = () => {
+  handleExportResult = () => {
     let filePath = `${getContext().filesDir}/benchmark_history/${this.currentShowBenchmark.filename}`
 
     let uri = fileUri.getUriFromPath(filePath)
@@ -142,6 +144,22 @@ export struct history {
 
     let context = getContext(this) as common.UIAbilityContext;
     context.startAbility(want)
+  }
+
+  handleShareResult = () => {
+    let toShare: systemShare.SharedData = new systemShare.SharedData({
+      utd: utd.UniformDataType.PLAIN_TEXT,
+      title: 'Benchmark Message',
+      content: `Date: ${this.currentShowBenchmark.date}
+Message: ${this.currentShowBenchmark.message}`
+    })
+    let shareController: systemShare.ShareController = new systemShare.ShareController(toShare)
+    let context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext
+
+    shareController.show(context, {
+      previewMode: systemShare.SharePreviewMode.DETAIL,
+      selectionMode: systemShare.SelectionMode.SINGLE
+    })
   }
 
   @Builder
@@ -176,11 +194,17 @@ export struct history {
     Scroll() {
       Column({ space: 12 }) {
         Column({ space: 8 }) {
-          Button('Export')
+          Button('Share')
             .width('100%')
             .buttonStyle(ButtonStyleMode.NORMAL)
             .onClick(() => {
               this.handleShareResult()
+            })
+          Button('Export to JSON')
+            .width('100%')
+            .buttonStyle(ButtonStyleMode.NORMAL)
+            .onClick(() => {
+              this.handleExportResult()
             })
           Button('Delete')
             .width('100%')

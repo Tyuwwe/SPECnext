@@ -261,9 +261,6 @@ interface benchRunnningHistoryType {
   status: Status
 }
 
-AppStorage.setOrCreate('nCopies', 1)
-AppStorage.setOrCreate('debugMode', false)
-
 const getFormattedTime = (): string => {
   const date = new Date()
   const year = date.getFullYear()
@@ -320,16 +317,21 @@ const handleSaveData = async (tests: Array<TestItem>, benchMessage: string, core
   writeHistoryData(JSON.stringify(benchHistory), String(Date.now()))
 }
 
+AppStorage.setOrCreate('nCopies', 1)
+AppStorage.setOrCreate('debugMode', false)
+AppStorage.setOrCreate('splitRun', false)
+
 @Entry
 @Component
 struct Index {
-  @State message: string = 'Idle';
+  @State message: string = '';
   @State sz: number = 20;
   cpuCount: number = 0;
   @State cpuOptions: MenuElement[] = [];
   @State currentCpuSelection: number = -1;
   @StorageLink('nCopies') nCopies: number = 1;
   @StorageLink('debugMode') debugMode: boolean = false;
+  @StorageLink('splitRun') splitRun: boolean = false;
   path: string = "";
   selectTextSize: number = 12
   @State refreshCount: number = 0;
@@ -564,6 +566,24 @@ struct Index {
   onStateChange = async (newStatus: Status, test: number, time: number, msg: string, timestamp: number) => {
     const TEST_GLOBAL = -1
     // this.message = message
+    let dateStr = ''
+    if (timestamp) {
+      const dateNew = new Date(Math.floor(timestamp / 1000))
+      const formatterCN = new Intl.DateTimeFormat("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+      dateStr = formatterCN.format(dateNew)
+    }
+    else {
+      dateStr = 'Event Log'
+    }
 
     if (test == TEST_GLOBAL) {
       if (newStatus != Status.Message) {
@@ -571,19 +591,19 @@ struct Index {
       }
       switch (newStatus) {
         case Status.Initializing:
-          this.message += `\n[${timestamp}] `
+          this.message += `\n[${dateStr}] `
           this.message += "Initializing..."
           return
         case Status.Message:
-          this.message += `\n[${timestamp}] `
+          this.message += `\n[${dateStr}] `
           this.message += msg
           return
         case Status.Error:
-          this.message += `\n[${timestamp}] `
+          this.message += `\n[${dateStr}] `
           this.message += "Failed with error: " + msg
           return
         case Status.Completed:
-          this.message += `\n[${timestamp}] `
+          this.message += `\n[${dateStr}] `
           this.message += "All tests completed."
           this.bShowLoading = false
           return
@@ -601,16 +621,16 @@ struct Index {
 
     switch (newStatus) {
       case Status.Initializing:
-        this.message += `\n[${timestamp}] `
+        this.message += `\n[${dateStr}] `
         this.message += "Setting up " + this.testList[idx].name + "..."
         break
       case Status.Running:
-        this.message += `\n[${timestamp}] `
+        this.message += `\n[${dateStr}] `
         this.message += "Running " + this.testList[idx].name + "..."
         this.currentRunning = `${this.testList[idx].name} ${this.testList[idx].errmsg}`
         break
       case Status.Completed:
-        this.message += `\n[${timestamp}] `
+        this.message += `\n[${dateStr}] `
         this.testList[idx].time = time
         this.testList[idx].score = this.testList[idx].reftime / time
         this.message += this.testList[idx].name + " completed, elapsed " +
@@ -624,7 +644,7 @@ struct Index {
         })
         break
       case Status.Error:
-        this.message += `\n[${timestamp}] `
+        this.message += `\n[${dateStr}] `
         this.message += this.testList[idx].name + " failed with: " + msg
 
         this.currentRunningHistory.push({
@@ -634,15 +654,15 @@ struct Index {
         })
         break
       case Status.Idle:
-        this.message += `\n[${timestamp}] `
+        this.message += `\n[${dateStr}] `
         this.message += "Idle"
         break
       case Status.Message:
-        this.message += `\n[${timestamp}] [${this.testList[idx].name}] `
+        this.message += `\n[${dateStr}] [${this.testList[idx].name}] `
         this.message += msg
         break
       default:
-        this.message += `\n[${timestamp}] `
+        this.message += `\n[${dateStr}] `
         this.message += "Unknown"
         break
     }
@@ -1007,7 +1027,7 @@ struct Index {
         // .backdropBlur(24)
         .padding('24px')
       }
-      .bindContentCover($$this.bShowDecompressing, this.modalDecompressing, {
+      .bindContentCover($$this.bShowInitializeScreen, this.modalDecompressing, {
         backgroundColor: $r('app.color.modal_transparent_background'),
         modalTransition: ModalTransition.NONE
       })
