@@ -317,7 +317,8 @@ void PinToCore(int core) {
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
   CPU_SET(core, &cpuset);
-  assert(sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0);
+  int ret = sched_setaffinity(0, sizeof(cpuset), &cpuset);
+  assert(ret == 0);
   OH_LOG_INFO(LOG_APP, "Pin to cpu %{public}d", core);
 }
 
@@ -326,7 +327,8 @@ void UnpinFromCore() {
     CPU_ZERO(&mask);
     unsigned long* pmask = (unsigned long*)&mask;
     *pmask = -1;
-    assert(sched_setaffinity(0, sizeof(mask), &mask) == 0);
+    int ret = sched_setaffinity(0, sizeof(mask), &mask);
+    assert(ret == 0);
 }
 
 // Taken from https://github.com/jiegec/SPECCPU2017Harmony/blob/7b6f081a4/entry/src/main/cpp/napi_init.cpp#L43
@@ -647,7 +649,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
 //                auto begin = std::chrono::steady_clock::now();
                 
                 struct rusage begin_usage;
-                assert(getrusage(RUSAGE_CHILDREN, &begin_usage) == 0);
+                auto retru = getrusage(RUSAGE_CHILDREN, &begin_usage);
+                assert(retru == 0);
 //                ret = f_main(argc, argv, envp);
                 pid_t pid = fork();
                 if (pid == 0) {
@@ -717,7 +720,8 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 
 //                auto end = std::chrono::steady_clock::now();
                 struct rusage end_usage;
-                assert(getrusage(RUSAGE_CHILDREN, &end_usage) == 0);
+                retru = getrusage(RUSAGE_CHILDREN, &end_usage);
+                assert(retru == 0);
                 
 //                double laptime = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1e6;
                 double laptime = GetTimeDelta(&begin_usage, &end_usage);
