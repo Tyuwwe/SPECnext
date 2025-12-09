@@ -35,7 +35,7 @@
 
 #define TEST_GLOBAL -1
 
-#define SLEEP_DURATION 30
+#define SLEEP_DURATION 20
 #define WORK_DURATION 20
 #define CYCLE_DURATION (SLEEP_DURATION + WORK_DURATION)
 
@@ -119,6 +119,8 @@ std::unordered_map<size_t, std::string> test_names{
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
     
+    {9993, "9992.latency2"},
+    {9993, "9993.cuprobe"},
     {9994, "9994.stream"},
     {9995, "9995.ffmpeg"},
     {9996, "9996.p7zip"},
@@ -218,6 +220,8 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220", nullptr}}},
     
     // Other
+    {9992, std::vector<std::vector<const char*>>{{"liblatency2.so", nullptr}}},
+    {9993, std::vector<std::vector<const char*>>{{"libcuprobe.so", nullptr}}},
     {9994, std::vector<std::vector<const char*>>{{"libstream.so", nullptr}}},
     {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=60", "-c:v", "libx264", "-crf", "15", "-preset", "veryslow", "-pix_fmt", "yuv420p", "-t", "30", "test.mp4", nullptr}}},
 //    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-codecs", nullptr}}},
@@ -284,26 +288,8 @@ static napi_value QueryCpuCount(napi_env env, napi_callback_info info)
     return nret;
 }
 
-// Taken from https://github.com/jiegec/SPECCPU2017Harmony/blob/7b6f081a4/entry/src/main/cpp/napi_init.cpp#L43
-// measure clock frequency
-// parameter
-// 1: core index
-static napi_value Clock(napi_env env, napi_callback_info info) {
-  // get args
-  size_t argc = 1;
-  napi_value args[1] = {nullptr};
-  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-
-  // set cpu affinity
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  int core;
-  napi_get_value_int32(env, args[0], &core);
-  CPU_SET(core, &cpuset);
-  assert(sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0);
-  OH_LOG_INFO(LOG_APP, "Pin to cpu %{public}d", core);
-
-  int n = 500000;
+uint64_t GetFreqOfCurrentThreadInHz() {
+      int n = 500000;
   auto before = std::chrono::steady_clock::now();
   // learned from lmbench lat_mem_rd
 #define FIVE(X) X X X X X
@@ -320,16 +306,50 @@ static napi_value Clock(napi_env env, napi_callback_info info) {
   auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
     
   uint64_t freq = n * 1000 * 1000000000LL / (ns);
-  double dfreq = (double)freq;
   OH_LOG_INFO(LOG_APP, "Clock frequency is %{public}f", (double)freq);
-  napi_value ret;
-  napi_create_double(env, dfreq, &ret);
-    
+  return freq;
+}
+
+void PinToCore(int core) {
+    if (core < 0)
+        return;
+    // set cpu affinity
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(core, &cpuset);
+  assert(sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0);
+  OH_LOG_INFO(LOG_APP, "Pin to cpu %{public}d", core);
+}
+
+void UnpinFromCore() {
     cpu_set_t mask;
     CPU_ZERO(&mask);
     unsigned long* pmask = (unsigned long*)&mask;
     *pmask = -1;
     assert(sched_setaffinity(0, sizeof(mask), &mask) == 0);
+}
+
+// Taken from https://github.com/jiegec/SPECCPU2017Harmony/blob/7b6f081a4/entry/src/main/cpp/napi_init.cpp#L43
+// measure clock frequency
+// parameter
+// 1: core index
+static napi_value Clock(napi_env env, napi_callback_info info) {
+  // get args
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+  int core;
+  napi_get_value_int32(env, args[0], &core);
+    
+  // set cpu affinity
+  PinToCore(core);
+
+  double dfreq = (double)GetFreqOfCurrentThreadInHz();
+  napi_value ret;
+  napi_create_double(env, dfreq, &ret);
+    
+  UnpinFromCore();
   return ret;
 }
 
@@ -393,8 +413,8 @@ void Callback(napi_env env, napi_value js_fun, void *context, void *data) {
 }
 
 static double GetTimeDelta(struct rusage* begin, struct rusage* end) {
-    auto begin_time = (double)begin->ru_utime.tv_sec + begin->ru_utime.tv_usec * 1e6;
-    auto end_time = (double)end->ru_utime.tv_sec + end->ru_utime.tv_usec * 1e6;
+    auto begin_time = (double)begin->ru_utime.tv_sec + (double)begin->ru_utime.tv_usec / 1e6;
+    auto end_time = (double)end->ru_utime.tv_sec + (double)end->ru_utime.tv_usec / 1e6;
     return end_time - begin_time;
 }
 
@@ -608,11 +628,18 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 if (f_init)
                     f_init();
                 
+//                PinToCore(cpuidx);
+//                auto begin_freq = GetFreqOfCurrentThreadInHz();
+//                UnpinFromCore();
+//                push_state(test_no, status_t::Message, std::string("Freq before bench: ") + std::to_string(begin_freq) + std::string("\n"));
+//                do_log_update();
+
                 push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
                 do_log_update();
                 
                 push_state(TEST_GLOBAL, status_t::Running, "");
                 do_log_update();
+                
 //                auto begin = std::chrono::steady_clock::now();
                 
                 struct rusage begin_usage;
@@ -665,7 +692,9 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     
                     while (true) {
                         int wstatus;
-                        int child_pid = waitpid(pid, &wstatus, WNOHANG);
+                        int child_pid = waitpid(pid, &wstatus,
+                            //0);
+                        WNOHANG);
                         if (child_pid == 0) {
                             // child not yet terminated
                             // should send signal
@@ -696,6 +725,12 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 if (f_finalize)
                     f_finalize();
                 dlclose(plib); // detach lib to release memory leak in some tests (502?)
+                
+//                PinToCore(cpuidx);
+//                auto end_freq = GetFreqOfCurrentThreadInHz();
+//                UnpinFromCore();
+//                push_state(test_no, status_t::Message, std::string("Freq after bench: ") + std::to_string(end_freq) + std::string("\n"));
+//                do_log_update();
                 
                 // Print stdout and stderr
                 if (test_no > 700) // should be "other" tests
