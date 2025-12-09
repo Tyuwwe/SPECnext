@@ -564,6 +564,7 @@ struct Index {
   ];
 
   onStateChange = async (newStatus: Status, test: number, time: number, msg: string, timestamp: number) => {
+    time = Math.max(time, 0.1)
     const TEST_GLOBAL = -1
     // this.message = message
     let dateStr = ''
