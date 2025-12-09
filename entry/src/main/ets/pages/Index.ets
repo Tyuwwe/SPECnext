@@ -551,12 +551,14 @@ struct Index {
     new TestItem('644.nab_s', TestType.FPspeed, false, Status.Skipped, 17472, -1, -1, ""),
 
     // Other
-    new TestItem('9994.stream',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
-    new TestItem('9995.ffmpeg',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
-    new TestItem('9996.p7zip',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
-    new TestItem('9997.llama-bench',TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
-    new TestItem('9998.c2clat',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
-    new TestItem('9999.vkpeak',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9992.latency2',     TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9993.cuprobe',      TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9994.stream',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9995.ffmpeg',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9996.p7zip',        TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9997.llama-bench',  TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9998.c2clat',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
+    new TestItem('9999.vkpeak',       TestType.Other, false, Status.Skipped, 1,  -1, -1, ""),
   ];
 
   onStateChange = async (newStatus: Status, test: number, time: number, msg: string, timestamp: number) => {

@@ -35,7 +35,7 @@
 
 #define TEST_GLOBAL -1
 
-#define SLEEP_DURATION 40
+#define SLEEP_DURATION 20
 #define WORK_DURATION 20
 #define CYCLE_DURATION (SLEEP_DURATION + WORK_DURATION)
 
@@ -119,6 +119,8 @@ std::unordered_map<size_t, std::string> test_names{
     {638, "638.imagick_s"},
     {644, "644.nab_s"},
     
+    {9993, "9992.latency2"},
+    {9993, "9993.cuprobe"},
     {9994, "9994.stream"},
     {9995, "9995.ffmpeg"},
     {9996, "9996.p7zip"},
@@ -218,6 +220,8 @@ std::unordered_map<size_t, std::vector<std::vector<const char*>>> test_cmdline{
     {644, std::vector<std::vector<const char*>>{{"libnab_s.so", "3j1n", "20140317", "220", nullptr}}},
     
     // Other
+    {9992, std::vector<std::vector<const char*>>{{"liblatency2.so", nullptr}}},
+    {9993, std::vector<std::vector<const char*>>{{"libcuprobe.so", nullptr}}},
     {9994, std::vector<std::vector<const char*>>{{"libstream.so", nullptr}}},
     {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-y", "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=60", "-c:v", "libx264", "-crf", "15", "-preset", "veryslow", "-pix_fmt", "yuv420p", "-t", "30", "test.mp4", nullptr}}},
 //    {9995, std::vector<std::vector<const char*>>{{"libffmpeg.so", "-codecs", nullptr}}},
@@ -307,6 +311,8 @@ uint64_t GetFreqOfCurrentThreadInHz() {
 }
 
 void PinToCore(int core) {
+    if (core < 0)
+        return;
     // set cpu affinity
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
@@ -622,12 +628,12 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                 if (f_init)
                     f_init();
                 
-                PinToCore(cpuidx);
-                auto begin_freq = GetFreqOfCurrentThreadInHz();
-                UnpinFromCore();
-                push_state(test_no, status_t::Message, std::string("Freq before bench: ") + std::to_string(begin_freq) + std::string("\n"));
-                do_log_update();
-                
+//                PinToCore(cpuidx);
+//                auto begin_freq = GetFreqOfCurrentThreadInHz();
+//                UnpinFromCore();
+//                push_state(test_no, status_t::Message, std::string("Freq before bench: ") + std::to_string(begin_freq) + std::string("\n"));
+//                do_log_update();
+
                 push_state(test_no, status_t::Running, "[" + std::to_string(i + 1) + "/" + std::to_string(cmds.size()) + "]");
                 do_log_update();
                 
@@ -686,7 +692,9 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     
                     while (true) {
                         int wstatus;
-                        int child_pid = waitpid(pid, &wstatus, WNOHANG);
+                        int child_pid = waitpid(pid, &wstatus,
+                            //0);
+                        WNOHANG);
                         if (child_pid == 0) {
                             // child not yet terminated
                             // should send signal
@@ -718,11 +726,11 @@ static napi_value RunTests(napi_env env, napi_callback_info info) {
                     f_finalize();
                 dlclose(plib); // detach lib to release memory leak in some tests (502?)
                 
-                PinToCore(cpuidx);
-                auto end_freq = GetFreqOfCurrentThreadInHz();
-                UnpinFromCore();
-                push_state(test_no, status_t::Message, std::string("Freq after bench: ") + std::to_string(end_freq) + std::string("\n"));
-                do_log_update();
+//                PinToCore(cpuidx);
+//                auto end_freq = GetFreqOfCurrentThreadInHz();
+//                UnpinFromCore();
+//                push_state(test_no, status_t::Message, std::string("Freq after bench: ") + std::to_string(end_freq) + std::string("\n"));
+//                do_log_update();
                 
                 // Print stdout and stderr
                 if (test_no > 700) // should be "other" tests

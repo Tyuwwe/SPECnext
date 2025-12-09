@@ -32,3 +32,5 @@ target_compile_options(7za PRIVATE
     -Wno-c++11-narrowing -Wno-increment-bool -w -fvisibility=hidden -fvisibility-inlines-hidden
     -Ofast)
 #add_subdirectory(llama.cpp)
+add_subdirectory(vk-ubench)
+add_subdirectory(latency2)
